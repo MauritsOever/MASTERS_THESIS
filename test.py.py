@@ -10,6 +10,8 @@ Created on Fri Mar  4 11:16:29 2022
 
 from sknn import ae
 from sklearn.neural_network import MLPRegressor
+import matplotlib.pyplot as plt
+import numpy as np
 
 def Yahoo(list_of_ticks, startdate, enddate, retsorclose = 'rets'):
     '''
@@ -67,4 +69,38 @@ reg = MLPRegressor(hidden_layer_sizes = (n_encoder1, n_encoder2, n_latent, n_dec
                    verbose = True)
 
 reg.fit(data, data)
+
+
+# getting some info on the latent data
+def encoder(data):
+    data = np.asmatrix(data)
+    
+    encoder1 = data*reg.coefs_[0] + reg.intercepts_[0]
+    encoder1 = (np.exp(encoder1) - np.exp(-encoder1))/(np.exp(encoder1) + np.exp(-encoder1))
+    
+    encoder2 = encoder1*reg.coefs_[1] + reg.intercepts_[1]
+    encoder2 = (np.exp(encoder2) - np.exp(-encoder2))/(np.exp(encoder2) + np.exp(-encoder2))
+    
+    latent = encoder2*reg.coefs_[2] + reg.intercepts_[2]
+    latent = (np.exp(latent) - np.exp(-latent))/(np.exp(latent) + np.exp(-latent))
+    
+    return np.asarray(latent)
+
+test_latent = encoder(data)
+
+plt.figure(figsize = (10,10))
+plt.scatter(test_latent[np.argmax(data, axis = 1) == 1,0], test_latent[np.argmax(data, axis = 1) == 1,1], label = '1')
+plt.title('Latent Space', fontsize=15)
+plt.xlabel('Z1', fontsize=15)
+plt.ylabel('Z2', fontsize=15)
+plt.legend(fontsize = 15)
+plt.axis('equal')
+plt.show()
+
+
+
+
+
+
+# data generation
 
