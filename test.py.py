@@ -17,10 +17,13 @@ https://jmetzen.github.io/2015-11-27/vae.html not entirely gaussian
 https://jaketae.github.io/study/vae/ gaussian diagonal
 https://tiao.io/post/tutorial-on-variational-autoencoders-with-a-concise-keras-implementation/ but generalise to complicated likelihoods 
 https://towardsdatascience.com/on-distribution-of-zs-in-vae-bb9a05b530c6 on the KL divergence
+https://stats.stackexchange.com/questions/306640/learning-normal-distribution-with-vae probs useless
+https://libs.garden/python/psanch21/VAE-GMVAE what is gaussian mixture??
+https://pyro.ai/examples/vae.html examples
+https://github.com/takahashihiroshi/t_vae main hopes on this one lmao
 
-
-
-
+MAIN IDEA:
+    - make a class that contains all the methods of fitting and generating a VAE both for normal and student t
 
 Created on Fri Mar  4 11:16:29 2022
 
