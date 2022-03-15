@@ -89,7 +89,9 @@ def encoder(data):
 test_latent = encoder(data)
 
 plt.figure(figsize = (10,10))
-plt.scatter(test_latent[np.argmax(data, axis = 1) == 1,0], test_latent[np.argmax(data, axis = 1) == 1,1], label = '1')
+#plt.scatter(test_latent[np.argmax(data, axis = 1) == 1,0], test_latent[np.argmax(data, axis = 1) == 1,1], label = '1')
+
+plt.scatter(test_latent[:,0], test_latent[:,1])
 plt.title('Latent Space', fontsize=15)
 plt.xlabel('Z1', fontsize=15)
 plt.ylabel('Z2', fontsize=15)
