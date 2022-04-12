@@ -48,7 +48,7 @@ def GenerateNormalData(list_of_tuples, n):
     return array
 
 n = 100000
-list_of_tuples = [(0,1),(1,0.01),(40,12),(0,1)]
+list_of_tuples = [(0,1), (1,0.01), (40,12), (5,10), (25,6), (100,85)]
 X = GenerateNormalData(list_of_tuples, n)
 X = torch.tensor(X)
 
@@ -66,7 +66,8 @@ class GaussianNetwork:
         dim_X : dimensions of the original data, but can be coded to be found
         dim_Z : dimensions of the latent space
         """
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # see if my system supports GPU usage, otherwise just use CPU
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
         super(GaussianNetwork, self).__init__()
         
         self.dim_X = dim_X
@@ -120,6 +121,9 @@ class GaussianNetwork:
             x_power = (x_diff * x_diff) * prec * -0.5
             return torch.sum((ln_var + math.log(2 * math.pi)) * 0.5 - x_power, dim=dim)
         
+        def standard_gaussian_nll(x, dim=1):
+            return torch.sum(0.5 * math.log(2 * math.pi) + 0.5 * x * x, dim=dim)
+        
         def gaussian_kl_divergence(mu, ln_var, dim=1):
             # function required for self.forward()
             return torch.sum(-0.5 * (1 + ln_var - mu.pow(2) - ln_var.exp()), dim=dim)
@@ -137,15 +141,27 @@ class GaussianNetwork:
             KL = gaussian_kl_divergence(mu=mu_enc, ln_var=ln_var_enc)
             return RE, KL
         
+        def evidence_lower_bound(self, x, k=1):
+            RE, KL = self.forward(x, k=k)
+            return -1 * (RE + KL)
         
-test = GaussianNetwork(4, 1)
-
-#%%
-# 
-
-class GaussianVAE:
+        def importance_sampling(self, x, k=1):
+            # used much later to obtain test_score
+            mu_enc, ln_var_enc = self.encode(x)
+            lls = []
+            for i in range(k):
+                z = reparameterize(mu=mu_enc, ln_var=ln_var_enc)
+                mu_dec, ln_var_dec = self.decode(z)
+                ll = -1 * gaussian_nll(x, mu=mu_dec, ln_var=ln_var_dec, dim=1)
+                ll -= standard_gaussian_nll(z, dim=1)
+                ll += gaussian_nll(z, mu=mu_enc, ln_var=ln_var_enc, dim=1)
+                lls.append(ll[:, None])
     
-    def __init__(self, n_in, n_latent, n_out):
+            return torch.cat(lls, dim=1).logsumexp(dim=1) - math.log(k)
+        
+        
+class GaussianVAE:
+    def __init__(self, dim_X, dim_Z):
         """
         Inherits from GaussianNetwork class, and also contains the fitting, 
         generation and prediction methods
@@ -156,8 +172,21 @@ class GaussianVAE:
         dim_Z : dimensions of the latent space
 
         """
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.network = GaussianNetwork(n_in, n_latent, n_h).to(self.device)
+        n_h          = int((dim_X - dim_Z) / 2)
+        self.device  = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.network = GaussianNetwork(dim_X, dim_Z).to(self.device)
+        
+
+#%% test random code things here
+loss = nn.GaussianNLLLoss()
+inputt = torch.randn(5, 2, requires_grad=True)
+target = torch.randn(5, 2)
+var = torch.ones(5, 2, requires_grad=True) #heteroscedastic
+output = loss(inputt, target, var)
+output.backward()
+
+
+#%%
 
 # .fit(data) method, which also reconstructs
 
