@@ -97,7 +97,6 @@ class GaussianNetwork:
         self.ld2_mu = nn.Linear(n_h, dim_X) # same as 
         self.ld2_ln_var = nn.Linear(n_h, dim_X)
         
-        
         def encode(self, x):
             # 
             h = self.le1(x)
@@ -106,6 +105,37 @@ class GaussianNetwork:
         def decode(self, z):
             h = self.ld1(z)
             return self.ld2_mu(h), self.ld2_ln_var(h)
+        
+        def reparameterize(mu, ln_var):
+            # function required for self.forward()
+            std = torch.exp(0.5 * ln_var)
+            eps = torch.randn_like(std)
+            z = mu + std * eps
+            return z
+        
+        def gaussian_nll(x, mu, ln_var, dim=1):
+            # function required for self.forward()
+            prec = torch.exp(-1 * ln_var)
+            x_diff = x - mu
+            x_power = (x_diff * x_diff) * prec * -0.5
+            return torch.sum((ln_var + math.log(2 * math.pi)) * 0.5 - x_power, dim=dim)
+        
+        def gaussian_kl_divergence(mu, ln_var, dim=1):
+            # function required for self.forward()
+            return torch.sum(-0.5 * (1 + ln_var - mu.pow(2) - ln_var.exp()), dim=dim)
+        
+        def forward(self, x, k=1):
+            # compute RE and KL, so we can tweak this to do what we want
+            mu_enc, ln_var_enc = self.encode(x)
+    
+            RE = 0
+            for i in range(k):
+                z = reparameterize(mu=mu_enc, ln_var=ln_var_enc)
+                mu_dec, ln_var_dec = self.decode(z)
+                RE += gaussian_nll(x, mu=mu_dec, ln_var=ln_var_dec) / k
+    
+            KL = gaussian_kl_divergence(mu=mu_enc, ln_var=ln_var_enc)
+            return RE, KL
         
         
 test = GaussianNetwork(4, 1)
@@ -134,5 +164,3 @@ class GaussianVAE:
 # .predict(out_of_sample) method
 
 # .generate() method, which generates data according to the latent distribution
-
-# 
