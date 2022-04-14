@@ -11,6 +11,8 @@ import numpy as np
 import torch
 from torch import nn
 
+import matplotlib.pyplot as plt
+
 
 
 #%% block of code that can generate normal uncorrelated data
@@ -67,7 +69,9 @@ def Yahoo(list_of_ticks, startdate, enddate, retsorclose = 'rets'):
     else:
         return dfclose
 
-list_of_ticks = ['AAPL', 'MSFT', ]
+list_of_ticks = ['AAPL', 'MSFT', 'KO', 'PEP', 'MS', 'GS', 'WFC', 'TSM']
+startdate     = '2010-01-01'
+enddate       = '2020-12-31'
 
 
 #%% create VAE module
@@ -80,18 +84,10 @@ list_of_ticks = ['AAPL', 'MSFT', ]
 # define train function
 # done...
 
-
 class GaussVAE(nn.Module):
     """
     Inherits from nn.Module to construct Gaussian VAE based on given data and 
     desired dimensions. 
-    
-    INPUTS for instantiating:
-    -------------------------
-    X     : m by n tensor where m is the amount of observations and n is the amount of
-            dimensions
-    
-    dim_Z : desired amount of dimensions in the latent space
     
     To do:
         - generalise encoder/decoder construction
@@ -101,22 +97,27 @@ class GaussVAE(nn.Module):
         
     """
     def __init__(self, X, dim_Z):
+        """
+        Constructs attributes, such as the autoencoder structure itself
+
+        Inputs for instantiating:
+        -------------------------
+        X     : float tensor of data
+        
+        dim_Z : desired amount of dimensions in the latent space 
+
+        """
         super(GaussVAE, self).__init__()
         
-        #self.float()
-        if X.type() != 'torch.FloatTensor':
-            self.X = torch.tensor(self.X).float()
-            print('forcing X to float tensor...')
-        else:
-            self.X = X
+        # force it to be a 
         
-        
+        self.X     = X
         self.dim_X = X.shape[1]
         self.dim_Z = dim_Z
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
         
         
-        self.beta = 0 # setting beta to zero is equivalent to a normal autoencoder
+        self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
             
         
         # sigmoid for now, but could also be ReLu, GeLu, tanh, etc
@@ -132,16 +133,27 @@ class GaussVAE(nn.Module):
             nn.Linear(self.dim_Y, self.dim_X))
     
     
-    def objective_function(self, x):
-        z       = self.encoder(x)
+    def objective_function(self):
+        """
+        Function that calculates the loss of the autoencoder by adding the
+        RE and the (weighted) KL. 
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
+
+        """
+        z       = self.encoder(self.X)
+        
         x_prime = self.decoder(z)
         
         target = torch.randn(z.shape) # unit multivariate for now, might change for later
         
-        KL_loss = nn.KLDivLoss(reduction = 'batchmean') # becomes a method
+        KL_loss = nn.KLDivLoss(reduction = 'batchmean') # as a method, and call it later
         
         KL = KL_loss(nn.functional.log_softmax(z, dim=1), target)
-        RE = ((x - x_prime)**2).mean() # mean squared error of reconstruction
+        RE = ((self.X - x_prime)**2).mean() # mean squared error of reconstruction
         
         return RE + self.beta * KL # function stolen from Bergeron et al. (2021) 
     
@@ -155,14 +167,45 @@ class GaussVAE(nn.Module):
             - tweak loss function if necessary
             - 
         """
-        pass
-    # okay now we have to code a function that fits i.e. optimizes this whole thing
+        self.train()
+        epochs  = 5 # amount of iterations        
+        losses  = []
         
-#%% test code here
+        optimizer = torch.optim.Adam(model.parameters(),
+                             lr = 1e-1,
+                             weight_decay = 1e-8)
+        
+        for epoch in range(epochs):
+            loss = self.objective_function()
+            
+            # The gradients are set to zero,
+            # the the gradient is computed and stored.
+            # .step() performs parameter update
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
+            losses += [loss]
+        
+        plt.plot(range(epochs), losses)
+        plt.show()
+        print(losses)
+        self.eval()
+        
+        
+#%% test code here:
+# get data to test on
+#X     = GenerateNormalData(list_of_tuples, n)
+X = Yahoo(list_of_ticks, startdate, enddate).iloc[1:, :]
+X = torch.tensor(np.array(X)).float()
+
+#%% actually run here
 dim_Z = 3
-X     = torch.tensor(GenerateNormalData(list_of_tuples, n)).float()
+model = GaussVAE(X, dim_Z)   
+# z = model.objective_function().detach().numpy() # detach is required as z required grad
 
-model = GaussVAE(X, dim_Z)
-        
-z = model.objective_function(X).detach().numpy() # detach is required as z required grad
+model.fit()
 
+
+# standardize data 
+# 

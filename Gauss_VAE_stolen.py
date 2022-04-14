@@ -37,7 +37,6 @@ def GenerateNormalData(list_of_tuples, n):
     an m by n array of uncorrelated normal data (diagonal covar matrix)
 
     """
-    import numpy as np
     array = np.empty((n,len(list_of_tuples)))
     
     for variable in range(len(list_of_tuples)):
