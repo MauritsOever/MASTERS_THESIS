@@ -140,7 +140,6 @@ class GaussVAE(nn.Module):
     desired dimensions. 
     
     To do:
-        - generalise encoder/decoder construction for layer amounts
         - generalise activation function (maybe)
         - change KL loss for different distributions
         - KL feels janky, show to other people for confirmations
@@ -150,42 +149,75 @@ class GaussVAE(nn.Module):
         
     """
     
-    def __init__(self, X, dim_Z):
+    def __init__(self, X, dim_Z, layers=3, standardize = True):
         """
         Constructs attributes, such as the autoencoder structure itself
 
         Inputs for instantiating:
         -------------------------
-        X     : multidimensional np array or pd dataframe
+        X           : multidimensional np array or pd dataframe
         
-        dim_Z : desired amount of dimensions in the latent space 
+        dim_Z       : desired amount of dimensions in the latent space 
+        
+        layers      : int, amount of layers for the encoder and decoder, default = 3, must be >= 2
+        
+        standardize : bool, if true than X gets mean var standardized
 
         """
         super(GaussVAE, self).__init__()
+        from collections import OrderedDict
         
-        # make X a tensor and standardize it
-        #self.X     = self.standardize_X(self.force_tensor(X)) # first force X to be a float tensor, and then standardize it
-        self.X     = self.force_tensor(X)
+        # make X a tensor, and standardize based on standardize
+        if standardize:
+            self.X     = self.standardize_X(self.force_tensor(X)) # first force X to be a float tensor, and then standardize it
+        else:
+            self.X     = self.force_tensor(X)
+
 
         self.dim_X = X.shape[1]
         self.dim_Z = dim_Z
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
         
         
-        self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
+        self.beta = 0 # setting beta to zero is equivalent to a normal autoencoder
             
         
         # sigmoid for now, but could also be ReLu, GeLu, tanh, etc
-        self.encoder = nn.Sequential(
-            nn.Linear(self.dim_X, self.dim_Y), nn.Sigmoid(),
-            nn.Linear(self.dim_Y, self.dim_Y), nn.Sigmoid(),
-            nn.Linear(self.dim_Y, dim_Z))
+        self.encoder = self.construct_encoder(layers)
+        self.decoder = self.construct_decoder(layers)
         
-        # same as encoder but in reversed order
-        self.decoder = nn.Sequential(
-            nn.Linear(dim_Z, self.dim_Y), nn.Sigmoid(),
-            nn.Linear(self.dim_Y, self.dim_Y), nn.Sigmoid(),
-            nn.Linear(self.dim_Y, self.dim_X))
+        
+    def construct_encoder(self, layers):
+        network = OrderedDict()
+        network['0'] = nn.Linear(self.dim_X, self.dim_Y)
+        network['1'] = nn.Sigmoid()
+        
+        count = 2
+        for i in range(layers-2):
+            network[str(count)]   = nn.Linear(self.dim_Y, self.dim_Y)
+            network[str(count+1)] = nn.Sigmoid()
+            count += 2
+        
+        network[str(count)] = nn.Linear(self.dim_Y, self.dim_Z)
+        
+        return nn.Sequential(network)
+    
+        
+    def construct_decoder(self, layers):
+        network = OrderedDict()
+        network['0'] = nn.Linear(self.dim_Z, self.dim_Y)
+        network['1'] = nn.Sigmoid()
+        
+        count = 2
+        for i in range(layers-2):
+            network[str(count)]   = nn.Linear(self.dim_Y, self.dim_Y)
+            network[str(count+1)] = nn.Sigmoid()
+            count += 2
+        
+        network[str(count)] = nn.Linear(self.dim_Y, self.dim_X)
+        
+        return nn.Sequential(network)
+        
     
     def standardize_X(self, X):
         # write code that standardizes X
@@ -276,10 +308,9 @@ X = GetData(datatype)
 
 #%% run VAE class here
 dim_Z = 3
-model = GaussVAE(X, dim_Z)   
+model = GaussVAE(X, dim_Z, standardize=True)   
 
-model.fit()
+# model.fit()
 
-X_prime = model.decoder(model.encoder(model.X)).detach().numpy()
+data = model.X.detach().numpy()
 
-diff = X - X_prime
