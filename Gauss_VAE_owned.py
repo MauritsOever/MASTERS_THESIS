@@ -29,7 +29,6 @@ def GenerateNormalData(list_of_tuples, n):
     an m by n array of uncorrelated normal data (diagonal covar matrix)
 
     """
-    import numpy as np
     array = np.empty((n,len(list_of_tuples)))
     
     for variable in range(len(list_of_tuples)):
@@ -37,11 +36,6 @@ def GenerateNormalData(list_of_tuples, n):
         
     return array
 
-n = 100000
-list_of_tuples = [(0,1), (0,0.01), (0,12), (0,10), (0,6), (0,85)]
-
-
-#%% block of code that will bet return data
 def Yahoo(list_of_ticks, startdate, enddate, retsorclose = 'rets'):
     '''
     Parameters
@@ -59,7 +53,6 @@ def Yahoo(list_of_ticks, startdate, enddate, retsorclose = 'rets'):
     '''
     import yfinance as yf
     import pandas as pd
-    import numpy as np
     
     dfclose = pd.DataFrame(yf.download(list_of_ticks, start=startdate, end=enddate))['Adj Close']
     dfrets  = np.log(dfclose) - np.log(dfclose.shift(1))
@@ -69,10 +62,67 @@ def Yahoo(list_of_ticks, startdate, enddate, retsorclose = 'rets'):
     else:
         return dfclose
 
-list_of_ticks = ['AAPL', 'MSFT', 'KO', 'PEP', 'MS', 'GS', 'WFC', 'TSM']
-startdate     = '2010-01-01'
-enddate       = '2020-12-31'
+def GenerateStudentTData(list_of_tuples, n):
+    """
+    Parameters
+    ----------
+    list_of_tuples : the tuples contain the mean, var and degrees of freedom of 
+                     the variables, the length of the list determines the 
+                     amount of variables
+                     
+    n              : int, amount of observations
 
+    Returns
+    -------
+    an m by n array of uncorrelated student t data (diagonal covar matrix)
+    
+    t.pdf(x, df, loc, scale)
+
+    """
+
+    from scipy.stats import t
+    array = np.random.uniform(size = (n, len(list_of_tuples)))
+    
+    for column in range(len(list_of_tuples)):
+        loc   = list_of_tuples[column][0]
+        scale = list_of_tuples[column][1]
+        df    = list_of_tuples[column][2]
+        
+        array[:, column] = t.ppf(array[:, column], df = df, loc = loc, scale = scale)
+    
+    return array
+    
+def GetData(datatype):
+    """
+    Generates a data array based on input
+
+    Parameters
+    ----------
+    datatype : string, choose between 'normal', 't', 'returns'
+
+    Returns
+    -------
+    array of generated or downloaded data
+
+    """
+    if datatype == 'normal':
+        n = 100000
+        list_of_tuples = [(0,1), (-0.5,0.01), (6,12), (80,10), (-10,6), (100,85)]
+        return GenerateNormalData(list_of_tuples, n)
+    
+    elif datatype == 't':
+        n = 100000
+        list_of_tuples = [(0,1,100), (-0.5,0.01,4), (6,12,50), (80,10,3), (-10,6,75), (100,85,25)]
+        return GenerateStudentTData(list_of_tuples, n)
+    
+    elif datatype == 'returns':
+        list_of_ticks = ['AAPL', 'MSFT', 'KO', 'PEP', 'MS', 'GS', 'WFC', 'TSM']
+        startdate     = '2010-01-01'
+        enddate       = '2020-12-31'
+        return np.array(Yahoo(list_of_ticks, startdate, enddate).iloc[1:, :])
+    
+    else:
+        print('datatype not recognized, please consult docstring for information on valid data types')
 
 #%% create VAE module
 
@@ -90,13 +140,16 @@ class GaussVAE(nn.Module):
     desired dimensions. 
     
     To do:
-        - generalise encoder/decoder construction
-        - generalise activation function
-        - change KL loss for non-unit mult normal
+        - generalise encoder/decoder construction for layer amounts
+        - generalise activation function (maybe)
+        - change KL loss for different distributions
         - KL feels janky, show to other people for confirmations
         - code a random/grid search (may already exist)
+        - implement batch normalisation (discuss w Rens)
+        - standardisation causes issues for Xprime analysis (discuss w Rens)
         
     """
+    
     def __init__(self, X, dim_Z):
         """
         Constructs attributes, such as the autoencoder structure itself
@@ -111,7 +164,8 @@ class GaussVAE(nn.Module):
         super(GaussVAE, self).__init__()
         
         # make X a tensor and standardize it
-        self.X     = self.standardize_X(self.force_tensor(X)) # first force X to be a float tensor, and then standardize it
+        #self.X     = self.standardize_X(self.force_tensor(X)) # first force X to be a float tensor, and then standardize it
+        self.X     = self.force_tensor(X)
 
         self.dim_X = X.shape[1]
         self.dim_Z = dim_Z
@@ -181,6 +235,8 @@ class GaussVAE(nn.Module):
             - try different optimizers
             - tweak loss function if necessary bc it feels janky
         """
+        from tqdm import tqdm
+        
         self.train() # turn into training mode
         epochs  = 1000 # amount of iterations        
         REs  = []
@@ -190,7 +246,7 @@ class GaussVAE(nn.Module):
                              lr = 1e-1,
                              weight_decay = 1e-8) # specify some hyperparams for the optimizer
         
-        for epoch in range(epochs):
+        for epoch in tqdm(range(epochs)):
             RE_KL = self.RE_KL_metric() # store RE and KL in tuple
             loss = self.loss_function(RE_KL) # calculate loss function based on tuple
             
@@ -202,30 +258,28 @@ class GaussVAE(nn.Module):
             optimizer.step()
             
             REs += [RE_KL[0]]
-            KLs += [RE_KL[1]] # RE and KLs are stored so we can look at them
-        
-        fig, axs = plt.subplots(2)
-        axs[0]   = plt.plot(range(epochs), REs)
-        axs[1]   = plt.plot(range(epochs), KLs)
-        axs[0].set_title('Reconstruction errors')
-        axs[1].set_title('KL distances')
-        plt.tight_layout()
+            KLs += [RE_KL[1]] # RE and KLs are stored for analysis
+            
+        plt.plot(range(epochs), REs)
+        plt.title('Reconstruction errors')
+        plt.show()
+        plt.plot(range(epochs), KLs)
+        plt.title('KL distances')
         plt.show()
         self.eval() # turn back into performance mode
         
+        return
         
-#%% test code here:
-# get data to test on
-X     = GenerateNormalData(list_of_tuples, n)
-#X = np.array(Yahoo(list_of_ticks, startdate, enddate).iloc[1:, :])
+#%% get data here
+datatype = 'normal'
+X = GetData(datatype)
 
-#%% actually run here
+#%% run VAE class here
 dim_Z = 3
 model = GaussVAE(X, dim_Z)   
-# z = model.objective_function().detach().numpy() # detach is required as z required grad
 
-# model.fit()
+model.fit()
 
+X_prime = model.decoder(model.encoder(model.X)).detach().numpy()
 
-# standardize data 
-# 
+diff = X - X_prime
