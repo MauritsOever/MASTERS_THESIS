@@ -94,6 +94,7 @@ class GaussVAE(nn.Module):
         - generalise activation function
         - change KL loss for non-unit mult normal
         - KL feels janky, show to other people for confirmations
+        - code a random/grid search (may already exist)
         
     """
     def __init__(self, X, dim_Z):
@@ -102,16 +103,16 @@ class GaussVAE(nn.Module):
 
         Inputs for instantiating:
         -------------------------
-        X     : float tensor of data
+        X     : multidimensional np array or pd dataframe
         
         dim_Z : desired amount of dimensions in the latent space 
 
         """
         super(GaussVAE, self).__init__()
         
-        # force it to be a 
-        
-        self.X     = X
+        # make X a tensor and standardize it
+        self.X     = self.standardize_X(self.force_tensor(X)) # first force X to be a float tensor, and then standardize it
+
         self.dim_X = X.shape[1]
         self.dim_Z = dim_Z
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
@@ -132,8 +133,18 @@ class GaussVAE(nn.Module):
             nn.Linear(self.dim_Y, self.dim_Y), nn.Sigmoid(),
             nn.Linear(self.dim_Y, self.dim_X))
     
+    def standardize_X(self, X):
+        # write code that standardizes X
+        return (X - X.mean(axis=0)) / X.std(axis=0)
     
-    def objective_function(self):
+    def force_tensor(self, X):
+        # write code that forces X to be a tensor
+        if type(X) != torch.Tensor:
+            return torch.Tensor(X).float()
+        else:
+            return X.float() # force it to float anyway
+    
+    def RE_KL_metric(self):
         """
         Function that calculates the loss of the autoencoder by adding the
         RE and the (weighted) KL. 
@@ -155,28 +166,33 @@ class GaussVAE(nn.Module):
         KL = KL_loss(nn.functional.log_softmax(z, dim=1), target)
         RE = ((self.X - x_prime)**2).mean() # mean squared error of reconstruction
         
-        return RE + self.beta * KL # function stolen from Bergeron et al. (2021) 
+        return (RE, KL) # function stolen from Bergeron et al. (2021) 
+
+    
+    def loss_function(self, RE_KL):
+        return RE_KL[0] + self.beta * RE_KL[1]
     
     def fit(self):
         """
         Function that fits the model based on previously passed data
         
         To do:
-            - code it 
+            - code it (yea kind of ready)
             - try different optimizers
-            - tweak loss function if necessary
-            - 
+            - tweak loss function if necessary bc it feels janky
         """
-        self.train()
-        epochs  = 5 # amount of iterations        
-        losses  = []
+        self.train() # turn into training mode
+        epochs  = 1000 # amount of iterations        
+        REs  = []
+        KLs  = []
         
         optimizer = torch.optim.Adam(model.parameters(),
                              lr = 1e-1,
-                             weight_decay = 1e-8)
+                             weight_decay = 1e-8) # specify some hyperparams for the optimizer
         
         for epoch in range(epochs):
-            loss = self.objective_function()
+            RE_KL = self.RE_KL_metric() # store RE and KL in tuple
+            loss = self.loss_function(RE_KL) # calculate loss function based on tuple
             
             # The gradients are set to zero,
             # the the gradient is computed and stored.
@@ -185,26 +201,30 @@ class GaussVAE(nn.Module):
             loss.backward()
             optimizer.step()
             
-            losses += [loss]
+            REs += [RE_KL[0]]
+            KLs += [RE_KL[1]] # RE and KLs are stored so we can look at them
         
-        plt.plot(range(epochs), losses)
+        fig, axs = plt.subplots(2)
+        axs[0]   = plt.plot(range(epochs), REs)
+        axs[1]   = plt.plot(range(epochs), KLs)
+        axs[0].set_title('Reconstruction errors')
+        axs[1].set_title('KL distances')
+        plt.tight_layout()
         plt.show()
-        print(losses)
-        self.eval()
+        self.eval() # turn back into performance mode
         
         
 #%% test code here:
 # get data to test on
-#X     = GenerateNormalData(list_of_tuples, n)
-X = Yahoo(list_of_ticks, startdate, enddate).iloc[1:, :]
-X = torch.tensor(np.array(X)).float()
+X     = GenerateNormalData(list_of_tuples, n)
+#X = np.array(Yahoo(list_of_ticks, startdate, enddate).iloc[1:, :])
 
 #%% actually run here
 dim_Z = 3
 model = GaussVAE(X, dim_Z)   
 # z = model.objective_function().detach().numpy() # detach is required as z required grad
 
-model.fit()
+# model.fit()
 
 
 # standardize data 
