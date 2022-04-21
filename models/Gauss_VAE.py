@@ -13,7 +13,6 @@ import torch
 from torch import nn
 import matplotlib.pyplot as plt
 
-#%% create VAE module
 
 class GaussVAE(nn.Module):
     """
@@ -21,14 +20,15 @@ class GaussVAE(nn.Module):
     desired dimensions. 
     
     To do:
-        - generalise activation function (maybe) 
-          like include a parameter that will choose
+        - generalise activation function (maybe)
+        
         - change KL loss for different distributions
         - KL feels janky, show to other people for confirmations
-        - code a random/grid search (may already exist, probs best to do it myself)
-        - implement batch normalisation (discuss w Rens)
-        - standardisation causes issues for Xprime analysis (discuss w Rens)
         
+        - code a random/grid search (may already exist, probs best to do it myself)
+        
+        - standardisation causes issues for Xprime analysis (discuss w Rens)
+        - write code that can unstandardize X_prime (maybe solution for point above)
     """
     
     def __init__(self, X, dim_Z, layers=3, standardize = True):
@@ -66,7 +66,7 @@ class GaussVAE(nn.Module):
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
         
         
-        self.beta = 0 # setting beta to zero is equivalent to a normal autoencoder
+        self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
             
         
         # sigmoid for now, but could also be ReLu, GeLu, tanh, etc
@@ -107,8 +107,12 @@ class GaussVAE(nn.Module):
         
     
     def standardize_X(self, X):
-        # write code that standardizes X
+        # write code that stores mean and var, so u can unstandardize X_prime
+        
         return (X - X.mean(axis=0)) / X.std(axis=0)
+    
+    def unstandardize_Xprime(self, X_prime):
+        pass
     
     def force_tensor(self, X):
         # write code that forces X to be a tensor
@@ -137,7 +141,8 @@ class GaussVAE(nn.Module):
         KL_loss = nn.KLDivLoss(reduction = 'batchmean') # as a method, and call it later
         
         KL = KL_loss(nn.functional.log_softmax(z, dim=1), target)
-        RE = ((self.X - x_prime)**2).mean() # mean squared error of reconstruction
+        self.REs = (self.X - x_prime)**2
+        RE = self.REs.mean() # mean squared error of reconstruction
         
         return (RE, KL) # function stolen from Bergeron et al. (2021) 
 
@@ -145,7 +150,7 @@ class GaussVAE(nn.Module):
     def loss_function(self, RE_KL):
         return RE_KL[0] + self.beta * RE_KL[1]
     
-    def fit(self):
+    def fit(self, epochs):
         """
         Function that fits the model based on previously passed data
         
@@ -157,7 +162,6 @@ class GaussVAE(nn.Module):
         from tqdm import tqdm
         
         self.train() # turn into training mode
-        epochs  = 1000 # amount of iterations        
         REs  = []
         KLs  = []
         
