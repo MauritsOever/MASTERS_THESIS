@@ -20,15 +20,7 @@ class GaussVAE(nn.Module):
     desired dimensions. 
     
     To do:
-        - generalise activation function (maybe)
-        
-        - change KL loss for different distributions
-        - KL feels janky, show to other people for confirmations
-        
-        - code a random/grid search (may already exist, probs best to do it myself)
-        
-        - standardisation causes issues for Xprime analysis (discuss w Rens)
-        - write code that can unstandardize X_prime (maybe solution for point above)
+        - optimize hyperparams
     """
     
     def __init__(self, X, dim_Z, layers=3, standardize = True):
@@ -104,15 +96,15 @@ class GaussVAE(nn.Module):
         network[str(count)] = nn.Linear(self.dim_Y, self.dim_X)
         
         return nn.Sequential(network)
-        
     
     def standardize_X(self, X):
         # write code that stores mean and var, so u can unstandardize X_prime
+        self.means_vars_X = (X.mean(axis=0), X.std(axis=0))
         
         return (X - X.mean(axis=0)) / X.std(axis=0)
     
     def unstandardize_Xprime(self, X_prime):
-        pass
+        return (X_prime * self.means_vars_X[1] + self.means_vars_X[0])
     
     def force_tensor(self, X):
         # write code that forces X to be a tensor
@@ -120,8 +112,21 @@ class GaussVAE(nn.Module):
             return torch.Tensor(X).float()
         else:
             return X.float() # force it to float anyway
+        
+    def ANLL(self, z):
+        n = z.shape[0]
+        K = z.shape[1]
+
+        mu = torch.Tensor(np.zeros(K))
+        covar = torch.Tensor(np.eye(K))
+        
+        LL = (-n*K/2*torch.log(torch.tensor(2*np.pi)) - n/2*torch.log(torch.det(covar))
+              -0.5*torch.sum(torch.Tensor([(z[row,:]@torch.inverse(covar)@z[row,:]) for row in range(n)])))
+        
+        return -1*LL/n
+        
     
-    def RE_KL_metric(self):
+    def RE_LL_metric(self):
         """
         Function that calculates the loss of the autoencoder by adding the
         RE and the (weighted) KL. 
@@ -136,42 +141,35 @@ class GaussVAE(nn.Module):
         
         x_prime = self.decoder(z)
         
-        target = torch.randn(z.shape) # unit multivariate for now, might change for later
+        # get negative average log-likelihood here
+        LL = self.ANLL(z)
         
-        KL_loss = nn.KLDivLoss(reduction = 'batchmean') # as a method, and call it later
-        
-        KL = KL_loss(nn.functional.log_softmax(z, dim=1), target)
         self.REs = (self.X - x_prime)**2
         RE = self.REs.mean() # mean squared error of reconstruction
         
-        return (RE, KL) # function stolen from Bergeron et al. (2021) 
+        return (RE, LL) # function stolen from Bergeron et al. (2021) 
 
     
-    def loss_function(self, RE_KL):
-        return RE_KL[0] + self.beta * RE_KL[1]
+    def loss_function(self, RE_LL):
+        return RE_LL[0] + self.beta * RE_LL[1]
     
     def fit(self, epochs):
         """
         Function that fits the model based on previously passed data
-        
-        To do:
-            - code it (yea kind of ready)
-            - try different optimizers
-            - tweak loss function if necessary bc it feels janky
         """
         from tqdm import tqdm
         
         self.train() # turn into training mode
         REs  = []
-        KLs  = []
+        LLs  = []
         
-        optimizer = torch.optim.Adam(self.parameters(),
+        optimizer = torch.optim.AdamW(self.parameters(),
                              lr = 1e-1,
                              weight_decay = 1e-8) # specify some hyperparams for the optimizer
         
         for epoch in tqdm(range(epochs)):
-            RE_KL = self.RE_KL_metric() # store RE and KL in tuple
-            loss = self.loss_function(RE_KL) # calculate loss function based on tuple
+            RE_LL = self.RE_LL_metric() # store RE and KL in tuple
+            loss = self.loss_function(RE_LL) # calculate loss function based on tuple
             
             # The gradients are set to zero,
             # the the gradient is computed and stored.
@@ -180,14 +178,14 @@ class GaussVAE(nn.Module):
             loss.backward()
             optimizer.step()
             
-            REs += [RE_KL[0]]
-            KLs += [RE_KL[1]] # RE and KLs are stored for analysis
-            
+            REs += [RE_LL[0].detach().numpy()]
+            LLs += [RE_LL[1].detach().numpy()] # RE and KLs are stored for analysis
+        
         plt.plot(range(epochs), REs)
         plt.title('Reconstruction errors')
         plt.show()
-        plt.plot(range(epochs), KLs)
-        plt.title('KL distances')
+        plt.plot(range(epochs), LLs)
+        plt.title('neg avg LLs')
         plt.show()
         self.eval() # turn back into performance mode
         

@@ -17,7 +17,7 @@ todo:
 def getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho, epochs):
     from models.Gauss_VAE import GaussVAE
     #from models.GaussMix_VAE import GaussMixVAE
-    #from models.StudentT_VAE import StudentTVAE
+    from models.StudentT_VAE import StudentTVAE
     from data.datafuncs import GetData
 
     print(f'Getting data, datatype = {datatype}')
@@ -28,17 +28,15 @@ def getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho
     if modeltype == 'normal':
         model = GaussVAE(X, dim_Z)
     elif modeltype == 't':
-        #model = StudentTVAE(X, dim_Z)
-        pass
+        model = StudentTVAE(X, dim_Z)
     elif modeltype == 'GausMix':
         #model = StudentTVAE(X, dim_Z)
         pass
     
     print('Fitting model, and plotting REs and KLs')
-    model.fit()
+    model.fit(epochs)
     
     # write something here that analyzes final residuals model.REs
-    print(model.REs)
     
     # write something here that generates data according to Z, then decode, 
     # then unstandardize then compare distribution wise to X  
@@ -46,14 +44,14 @@ def getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho
 def main():
     # handle imports 
     import os
-    os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
+    os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
     
-    modeltype       = 'normal' # normal, t, gausmix
-    datatype        = 'normal' # normal, t, returns, (interest rates)
+    modeltype       = 't' # normal, t, gausmix
+    datatype        = 't' # normal, t, returns, (interest rates)
     correlated_dims = 3
-    dim_Z           = 4
-    rho             = 0.3
-    epochs          = 5000
+    dim_Z           = 3
+    rho             = 0.8
+    epochs          = 100
 
     
     getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho, epochs)

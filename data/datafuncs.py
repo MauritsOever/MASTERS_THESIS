@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Functions that simulates and loads in data for the thesis
+
+To do:
+    - finalize simulated simple data, normal is done, only t
+    - make a dataset that has non-linear dependencies, maybe categorical data etc
+    - 
+
 Created on Wed Apr 20 14:31:58 2022
 
 @author: gebruiker
@@ -32,8 +39,8 @@ def GenerateNormalData(list_of_tuples, n, correlated_dims, rho):
             array[:,counter+col] = rho*array[:,counter] + np.sqrt(1-rho**2)* array[:,counter+col]
         counter += amount_of_cols_per_dim
     
-    for col in range(len(list_of_tuples)):
-        array[:,col] = array[:,col] * list_of_tuples[col][1] + list_of_tuples[col][0]
+    # for col in range(len(list_of_tuples)):
+    #     array[:,col] = array[:,col] * list_of_tuples[col][1] + list_of_tuples[col][0]
     
     return array
 
@@ -55,20 +62,26 @@ def GenerateStudentTData(list_of_tuples, n, correlated_dims, rho):
 
     """
     import numpy as np
-    from scipy.stats import t
-    array = np.random.uniform(size = (n, len(list_of_tuples)))
+  
+    array = np.empty((n,len(list_of_tuples)))
     
-    for column in range(len(list_of_tuples)):
-        df    = list_of_tuples[column][2]
-        array[:, column] = t.ppf(array[:, column], df = df, loc = 0, scale = 1)
+    for variable in range(len(list_of_tuples)):
+        array[:,variable] = np.random.standard_t(list_of_tuples[variable][2], n)
+        # array[:,variable] = np.random.normal(0, 1, n)
+
         
     amount_of_cols_per_dim = int(len(list_of_tuples) / correlated_dims)
     
     counter = 0
     for i in range(0, correlated_dims):
+        chi_square = np.random.chisquare(list_of_tuples[i][2])
         for col in range(1, amount_of_cols_per_dim):
             array[:,counter+col] = rho*array[:,counter] + np.sqrt(1-rho**2)* array[:,counter+col]
+            # array[:,counter+col] = array[:,counter+col] / np.sqrt(chi_square/list_of_tuples[i][2])
         counter += amount_of_cols_per_dim
+    
+    for col in range(len(list_of_tuples)):
+        array[:,col] = array[:,col] * list_of_tuples[col][1] + list_of_tuples[col][0] # scale
     
     return array
 
@@ -114,7 +127,7 @@ def GetData(datatype, correlated_dims, rho):
 
     """
     import numpy as np
-    n = 1000
+    n = 10000
     
     if datatype == 'normal':
         list_of_tuples = [(0,1), (-0.5,0.01), (6,12), (80,10), (-10,6), (100,85),
@@ -122,8 +135,8 @@ def GetData(datatype, correlated_dims, rho):
         return GenerateNormalData(list_of_tuples, n, correlated_dims, rho)
     
     elif datatype == 't':
-        list_of_tuples = [(0,1,100), (-0.5,0.01,4), (6,12,50), (80,10,3), (-10,6,75), (100,85,25),
-                          (25, 5,5), (36, 6, 6), (2, 1, 8), (73, 30, 10), (-10,2.5,15), (-20, 4, 20)]
+        list_of_tuples = [(0,1,4), (-0.5,0.01,4), (6,12,5), (80,10,3), (-10,6,6), (100,85,4.5),
+                          (25, 5,5), (36, 6, 6), (2, 1, 8), (73, 30, 5), (-10,2.5,10), (-20, 4, 4.44)]
         return GenerateStudentTData(list_of_tuples, n, correlated_dims, rho)
     
     elif datatype == 'returns':
