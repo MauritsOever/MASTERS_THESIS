@@ -12,6 +12,7 @@ https://stats.stackexchange.com/questions/350921/variational-autoencoder-with-ga
 https://bzong.github.io/doc/iclr18-dagmm.pdf
 http://lijiaying.github.io/papers/iccv19.pdf
 
+https://paperswithcode.com/paper/deep-unsupervised-clustering-with-gaussian
 """
 
 
