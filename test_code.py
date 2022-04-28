@@ -6,9 +6,13 @@ Created on Mon Apr 25 17:14:17 2022
 
 @author: MauritsvandenOeverPr
 """
+import os
+os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
+
+
 from models.Gauss_VAE import GaussVAE
 #from models.GaussMix_VAE import GaussMixVAE
-#from models.StudentT_VAE import StudentTVAE
+from models.StudentT_VAE import StudentTVAE
 from data.datafuncs import GetData
 import torch
 import numpy as np
@@ -20,9 +24,10 @@ rho             = 0.8
 epochs          = 100
 
 
-X = GetData('t', correlated_dims, rho)
+X = GetData('returns', correlated_dims, rho) # normal, t, returns, interestrates
 
 model = GaussVAE(X, dim_Z)
 
-model.fit()
+model.fit(epochs)
 
+test = model.forward(X[1:2500, :])

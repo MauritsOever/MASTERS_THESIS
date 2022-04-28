@@ -105,6 +105,8 @@ def Yahoo(list_of_ticks, startdate, enddate, retsorclose = 'rets'):
     import numpy as np
     
     dfclose = pd.DataFrame(yf.download(list_of_ticks, start=startdate, end=enddate))['Adj Close']
+    dfclose = dfclose.ffill()
+    dfclose = dfclose.backfill()
     dfrets  = np.log(dfclose) - np.log(dfclose.shift(1))
     
     if retsorclose == 'rets':
@@ -140,9 +142,10 @@ def GetData(datatype, correlated_dims, rho):
         return GenerateStudentTData(list_of_tuples, n, correlated_dims, rho)
     
     elif datatype == 'returns':
-        list_of_ticks = ['AAPL', 'MSFT', 'KO', 'PEP', 'MS', 'GS', 'WFC', 'TSM']
-        startdate     = '2010-01-01'
-        enddate       = '2020-12-31'
+        list_of_ticks = ['NSRGY', 'VWS.CO', 'BCS', 'ING', 'STM', 'DB', 'VWAGY', 
+                         'GMAB.CO', 'BP', 'HM-B.ST', 'SAN', 'MPCK.HA', 'POL.OL', 'TIS.MI']
+        startdate     = '2001-01-01'
+        enddate       = '2021-12-31'
         return np.array(Yahoo(list_of_ticks, startdate, enddate).iloc[1:, :])
     elif datatype == 'interestrates':
         print('This is gonna be a feature, but its not done yet!')

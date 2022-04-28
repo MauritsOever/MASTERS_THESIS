@@ -69,6 +69,19 @@ class StudentTVAE(nn.Module):
         
         
     def construct_encoder(self, layers):
+        """
+        Generates the encoder neural net dynamically based on layers parameter
+
+        Parameters
+        ----------
+        layers : int, amount of layers, same as the decoder
+
+        Returns
+        -------
+        instantiation of the nn.Sequential class, with the appropriate amount
+        of layers
+
+        """
         network = OrderedDict()
         network['0'] = nn.Linear(self.dim_X, self.dim_Y)
         network['1'] = nn.Sigmoid()
@@ -85,6 +98,19 @@ class StudentTVAE(nn.Module):
     
         
     def construct_decoder(self, layers):
+        """
+        Generates the decoder neural net dynamically based on layers parameter
+
+        Parameters
+        ----------
+        layers : int, amount of layers, same as the enoder
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
+
+        """
         network = OrderedDict()
         network['0'] = nn.Linear(self.dim_Z, self.dim_Y)
         network['1'] = nn.Sigmoid()
@@ -100,22 +126,96 @@ class StudentTVAE(nn.Module):
         return nn.Sequential(network)
     
     def standardize_X(self, X):
+        """
+        Class method that stores the mean and variances of the given data for 
+        later unstandardisation, and standardizes the data
+
+        Parameters
+        ----------
+        X : multidimensional float tensor
+
+        Returns
+        -------
+        Standardized version of multidimensional float tensor
+
+        """
         # write code that stores mean and var, so u can unstandardize X_prime
         self.means_vars_X = (X.mean(axis=0), X.std(axis=0))
         
         return (X - X.mean(axis=0)) / X.std(axis=0)
     
     def unstandardize_Xprime(self, X_prime):
+        """
+        Using previously stores means and variances, unstandardize the predicted
+        data
+
+        Parameters
+        ----------
+        X_prime : multidimensial float tensor
+
+        Returns
+        -------
+        Rescaled multidimensional float tensor
+
+        """
         return (X_prime * self.means_vars_X[1] + self.means_vars_X[0])
     
     def force_tensor(self, X):
+        """
+        forces the given object into a float tensor
+
+        Parameters
+        ----------
+        X : np.array or pd.DataFrame of data
+
+        Returns
+        -------
+        float tensor of given data
+
+        """
         # write code that forces X to be a tensor
         if type(X) != torch.Tensor:
             return torch.Tensor(X).float()
         else:
             return X.float() # force it to float anyway
+    
+    def forward(self, data):
+        """
+        Function that standardizes the given data, and feeds it through the 
+        architecture
+
+        Parameters
+        ----------
+        data : Multidimensional array of data, has to match the model 
+        instantiation in terms of feature count
+
+        Returns
+        -------
+        Data that has been fed through the model
+
+        """
+        if self.X.shape[1] != data.shape[1]:
+            print('data does not match instantiation data in feature count')
+            return None
+        
+        data = self.standardize_X(self.force_tensor(data))
+        
+        return self.unstandardize_Xprime(self.decoder(self.encoder(data))).detach().numpy()
         
     def ANLL(self, z):
+        """
+        Function that calculates log likelihood based on latent space distribution
+        and reduced data z
+
+        Parameters
+        ----------
+        z : reduced data after encoding data
+
+        Returns
+        -------
+        Average negative log likelihood
+
+        """
         nu = 4
         
         n = z.shape[0]
@@ -133,17 +233,17 @@ class StudentTVAE(nn.Module):
             LL += torch.log(c*fx)
         
         return -1*LL/n
+
         
     
     def RE_LL_metric(self):
         """
-        Function that calculates the loss of the autoencoder by adding the
-        RE and the (weighted) KL. 
+        Function that calculates the loss of the autoencoder by
+        RE and LL. 
 
         Returns
         -------
-        TYPE
-            DESCRIPTION.
+        tuple of RE and LL
 
         """
         z       = self.encoder(self.X)
@@ -160,6 +260,18 @@ class StudentTVAE(nn.Module):
 
     
     def loss_function(self, RE_LL):
+        """
+        function that reconciles RE and LL in loss equation
+
+        Parameters
+        ----------
+        RE_LL : tuple of RE and LL
+
+        Returns
+        -------
+        calculated loss as a product of RE and LL
+
+        """
         return RE_LL[0] + self.beta * RE_LL[1]
     
     def fit(self, epochs):
@@ -199,3 +311,23 @@ class StudentTVAE(nn.Module):
         self.eval() # turn back into performance mode
         
         return
+
+#%%
+def ANLL(self, z):
+    nu = 4
+    
+    n = z.shape[0]
+    K = z.shape[1]
+    
+    covar = torch.Tensor(np.eye(K)) * (nu/(nu-2))
+    
+    gammas = float(mpmath.gamma(nu/2 + K/2)/mpmath.gamma(nu/2))
+    
+    c  = ((nu*np.pi)**(-K/2)) * gammas *torch.det(covar)**-0.5
+    
+    LL = 0
+    for row in range(n):
+        fx = (1 + 1/n*(z[row,:]@torch.inverse(covar)@z[row,:]))**((-n+K)/2)
+        LL += torch.log(c*fx)
+    
+    return -1*LL/n
