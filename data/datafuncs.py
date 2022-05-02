@@ -3,9 +3,8 @@
 Functions that simulates and loads in data for the thesis
 
 To do:
-    - finalize simulated simple data, normal is done, only t
-    - make a dataset that has non-linear dependencies, maybe categorical data etc
-    - 
+    - maybe look at ways to adjust data set structure (may go for OOP)
+    - actually write csv's and implement checks
 
 Created on Wed Apr 20 14:31:58 2022
 
@@ -39,10 +38,11 @@ def GenerateNormalData(list_of_tuples, n, correlated_dims, rho):
             array[:,counter+col] = rho*array[:,counter] + np.sqrt(1-rho**2)* array[:,counter+col]
         counter += amount_of_cols_per_dim
     
-    # for col in range(len(list_of_tuples)):
-    #     array[:,col] = array[:,col] * list_of_tuples[col][1] + list_of_tuples[col][0]
+    for col in range(len(list_of_tuples)):
+        array[:,col] = array[:,col] * list_of_tuples[col][1] + list_of_tuples[col][0]
     
     return array
+
 
 def GenerateStudentTData(list_of_tuples, n, correlated_dims, rho):
     """
@@ -56,32 +56,30 @@ def GenerateStudentTData(list_of_tuples, n, correlated_dims, rho):
 
     Returns
     -------
-    an m by n array of correlated student t data (diagonal covar matrix)
+    an m by n array of correlated student t data
     
     t.ppf(x, df, loc, scale)
 
     """
+    from copulae import GaussianCopula
     import numpy as np
-  
-    array = np.empty((n,len(list_of_tuples)))
+    from scipy.stats import t
+    array = np.zeros((n,len(list_of_tuples)))
     
-    for variable in range(len(list_of_tuples)):
-        array[:,variable] = np.random.standard_t(list_of_tuples[variable][2], n)
-        # array[:,variable] = np.random.normal(0, 1, n)
-
-        
-    amount_of_cols_per_dim = int(len(list_of_tuples) / correlated_dims)
+    DF = 5
+    cols_per_dim = int(len(list_of_tuples)/correlated_dims)
+    rhos = np.array([rho] * cols_per_dim)
     
     counter = 0
-    for i in range(0, correlated_dims):
-        chi_square = np.random.chisquare(list_of_tuples[i][2])
-        for col in range(1, amount_of_cols_per_dim):
-            array[:,counter+col] = rho*array[:,counter] + np.sqrt(1-rho**2)* array[:,counter+col]
-            # array[:,counter+col] = array[:,counter+col] / np.sqrt(chi_square/list_of_tuples[i][2])
-        counter += amount_of_cols_per_dim
+    for dim in range(correlated_dims):
+        cop = GaussianCopula(dim = cols_per_dim)
+        cop._rhos = rhos
+        array[:,counter:counter+cols_per_dim] = cop.random(n)
+        counter += cols_per_dim
     
-    for col in range(len(list_of_tuples)):
-        array[:,col] = array[:,col] * list_of_tuples[col][1] + list_of_tuples[col][0] # scale
+    for col in range(array.shape[1]):
+        array[:,col] = t.ppf(array[:,col], df= list_of_tuples[col][2])
+        array[:,col] = array[:,col]*list_of_tuples[col][1] + list_of_tuples[col][0]
     
     return array
 
@@ -95,7 +93,8 @@ def GenerateMixOfData(n, rho):
 
     """
     import numpy as np
-    from scipy.stats import bernoulli
+    from scipy.stats import bernoulli, t
+    from copulae import GumbelCopula, GaussianCopula
     array = np.zeros((n,12))
     
     
@@ -118,10 +117,16 @@ def GenerateMixOfData(n, rho):
         if corrs[1,2] < rho:
             array[row,8] = array[row,7]
     
+    # gumbel formula, then transform to student t  (so non linear dependency)
+    cop = GumbelCopula(theta=4, dim=3)
+    array[:,9:12] = cop.random(n)
+    array[:,9] = t.ppf(array[:,9], df=5)
+    array[:,10] = t.ppf(array[:,10], df=8)
+    array[:,11] = t.ppf(array[:,11], df=6.5)
     
-    # other non-linear copula
-    
+    return array
 
+    
 def Yahoo(list_of_ticks, startdate, enddate, retsorclose = 'rets'):
     '''
     Parameters
@@ -158,7 +163,7 @@ def GetData(datatype, correlated_dims, rho):
 
     Parameters
     ----------
-    datatype : string, choose between 'normal', 't', 'returns'
+    datatype : string, choose between 'normal', 't', 'mix', 'returns'
 
     Returns
     -------
@@ -184,8 +189,10 @@ def GetData(datatype, correlated_dims, rho):
         startdate     = '2001-01-01'
         enddate       = '2021-12-31'
         return np.array(Yahoo(list_of_ticks, startdate, enddate).iloc[1:, :])
+    
     elif datatype == 'mix':
         return GenerateMixOfData(n,rho)
+    
     elif datatype == 'interestrates':
         print('This is gonna be a feature, but its not done yet!')
     else:

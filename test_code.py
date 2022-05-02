@@ -17,17 +17,5 @@ from data.datafuncs import GetData
 import torch
 import numpy as np
 import mpmath
+import matplotlib.pyplot as plt
 
-correlated_dims = 3
-dim_Z           = 4
-rho             = 0.8
-epochs          = 100
-
-
-X = GetData('returns', correlated_dims, rho) # normal, t, returns, interestrates
-
-model = GaussVAE(X, dim_Z)
-
-model.fit(epochs)
-
-test = model.forward(X[1:2500, :])
