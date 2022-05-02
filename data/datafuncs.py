@@ -108,17 +108,16 @@ def GenerateMixOfData(n, rho):
     array[:,3:6] = GenerateStudentTData(list_of_tuples, n, 1, rho)
     
     # bernoulli correlated
-    array3 = bernoulli.rvs(0.5, size=(n,3))
+    array[:,6:9] = bernoulli.rvs(0.5, size=(n,3))
     for row in range(5,n):
-        corrs = np.corrcoef(array3[0:row,:], rowvar=False)
+        corrs = np.corrcoef(array[0:row,6:9], rowvar=False)
         if corrs[0,1] < rho:
-            array3[row,1] = array3[row,0]
+            array[row,7] = array[row,6]
         if corrs[0,2] < rho:
-            array3[row,2] = array3[row,0]
+            array[row,8] = array[row,6]
         if corrs[1,2] < rho:
-            array3[row,2] = array3[row,1]
+            array[row,8] = array[row,7]
     
-    array[:,6:9] = array3
     
     # other non-linear copula
     
