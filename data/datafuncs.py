@@ -85,6 +85,44 @@ def GenerateStudentTData(list_of_tuples, n, correlated_dims, rho):
     
     return array
 
+def GenerateMixOfData(n, rho):
+    """
+    
+
+    Returns
+    -------
+    None.
+
+    """
+    import numpy as np
+    from scipy.stats import bernoulli
+    array = np.zeros((n,12))
+    
+    
+    # normal correlated
+    list_of_tuples = [(0,1), (-0.5,0.01), (6,12)]
+    array[:,0:3] = GenerateNormalData(list_of_tuples, n, 1, rho)
+    
+    # student t correlated
+    list_of_tuples = [(0,1,8), (-0.5,0.01,4), (6,12,5)]
+    array[:,3:6] = GenerateStudentTData(list_of_tuples, n, 1, rho)
+    
+    # bernoulli correlated
+    array3 = bernoulli.rvs(0.5, size=(n,3))
+    for row in range(5,n):
+        corrs = np.corrcoef(array3[0:row,:], rowvar=False)
+        if corrs[0,1] < rho:
+            array3[row,1] = array3[row,0]
+        if corrs[0,2] < rho:
+            array3[row,2] = array3[row,0]
+        if corrs[1,2] < rho:
+            array3[row,2] = array3[row,1]
+    
+    array[:,6:9] = array3
+    
+    # other non-linear copula
+    
+
 def Yahoo(list_of_ticks, startdate, enddate, retsorclose = 'rets'):
     '''
     Parameters
@@ -147,6 +185,8 @@ def GetData(datatype, correlated_dims, rho):
         startdate     = '2001-01-01'
         enddate       = '2021-12-31'
         return np.array(Yahoo(list_of_ticks, startdate, enddate).iloc[1:, :])
+    elif datatype == 'mix':
+        return GenerateMixOfData(n,rho)
     elif datatype == 'interestrates':
         print('This is gonna be a feature, but its not done yet!')
     else:

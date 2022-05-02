@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 class GaussMixVAE: #(nn.Module):
     
     def __init__(self):
-        print('Im not done yet!')
+        raise NotImplementedError
 
 
 
