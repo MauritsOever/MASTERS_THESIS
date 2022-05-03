@@ -313,23 +313,3 @@ class StudentTVAE(nn.Module):
         self.eval() # turn back into performance mode
         
         return
-
-#%%
-def ANLL(self, z):
-    nu = 4
-    
-    n = z.shape[0]
-    K = z.shape[1]
-    
-    covar = torch.Tensor(np.eye(K)) * (nu/(nu-2))
-    
-    gammas = float(mpmath.gamma(nu/2 + K/2)/mpmath.gamma(nu/2))
-    
-    c  = ((nu*np.pi)**(-K/2)) * gammas *torch.det(covar)**-0.5
-    
-    LL = 0
-    for row in range(n):
-        fx = (1 + 1/n*(z[row,:]@torch.inverse(covar)@z[row,:]))**((-n+K)/2)
-        LL += torch.log(c*fx)
-    
-    return -1*LL/n

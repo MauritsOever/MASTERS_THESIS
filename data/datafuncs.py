@@ -166,7 +166,9 @@ def GetData(datatype, correlated_dims, rho):
 
     Parameters
     ----------
-    datatype : string, choose between 'normal', 't', 'mix', 'returns'
+    datatype        : string, choose between 'normal', 't', 'mix', 'returns'
+    correlated_dims : int, the amount of factors driving the data generation
+    rho             : float, the correlation between variables
 
     Returns
     -------
