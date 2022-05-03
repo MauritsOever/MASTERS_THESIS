@@ -53,7 +53,7 @@ def main():
     correlated_dims = 3
     dim_Z           = 3
     rho             = 0.8
-    epochs          = 1000
+    epochs          = 2
 
     
     getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho, epochs)
