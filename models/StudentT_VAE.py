@@ -272,9 +272,8 @@ class StudentTVAE(nn.Module):
         calculated loss as a product of RE and LL
 
         """
-        #dynamic_beta = RE_LL[0] / RE_LL[1]
-        #return RE_LL[0] + dynamic_beta * RE_LL[1]
-        return RE_LL[0] + self.beta * RE_LL[1]
+        # return RE_LL[0] + self.beta * RE_LL[1]
+        return RE_LL[0]/ 2 * RE_LL[0]**2 + RE_LL[1]
     
     def fit(self, epochs):
         """
