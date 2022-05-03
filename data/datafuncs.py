@@ -4,7 +4,7 @@ Functions that simulates and loads in data for the thesis
 
 To do:
     - maybe look at ways to adjust data set structure (may go for OOP)
-    - actually write csv's and implement checks
+    - actually write csv's and implement checks - in a generate all datasets function
 
 Created on Wed Apr 20 14:31:58 2022
 
@@ -174,16 +174,22 @@ def GetData(datatype, correlated_dims, rho):
     n = 10000
     
     if datatype == 'normal':
+        # create check to see if its already generated------------------------------------------------------------------------------------------------
+        
         list_of_tuples = [(0,1), (-0.5,0.01), (6,12), (80,10), (-10,6), (100,85),
                           (25, 5), (36, 6), (2, 1), (73, 30), (-10,2.5), (-20, 4)]
         return GenerateNormalData(list_of_tuples, n, correlated_dims, rho)
     
     elif datatype == 't':
+        # create check to see if its already generated------------------------------------------------------------------------------------------------
+        
         list_of_tuples = [(0,1,4), (-0.5,0.01,4), (6,12,5), (80,10,3), (-10,6,6), (100,85,4.5),
                           (25, 5,5), (36, 6, 6), (2, 1, 8), (73, 30, 5), (-10,2.5,10), (-20, 4, 4.44)]
         return GenerateStudentTData(list_of_tuples, n, correlated_dims, rho)
     
     elif datatype == 'returns':
+        # create check to see if its already there   ------------------------------------------------------------------------------------------------
+
         list_of_ticks = ['NSRGY', 'VWS.CO', 'BCS', 'ING', 'STM', 'DB', 'VWAGY', 
                          'GMAB.CO', 'BP', 'HM-B.ST', 'SAN', 'MPCK.HA', 'POL.OL', 'TIS.MI']
         startdate     = '2001-01-01'
@@ -191,9 +197,32 @@ def GetData(datatype, correlated_dims, rho):
         return np.array(Yahoo(list_of_ticks, startdate, enddate).iloc[1:, :])
     
     elif datatype == 'mix':
+        # create check to see if its already generated------------------------------------------------------------------------------------------------
+        
         return GenerateMixOfData(n,rho)
     
     elif datatype == 'interestrates':
         print('This is gonna be a feature, but its not done yet!')
     else:
         print('datatype not recognized, please consult docstring for information on valid data types')
+
+def GenerateAllDataSets():
+    """
+    
+
+    Returns
+    -------
+    None.
+
+    """
+    # delete all datasets that are already there
+    
+    for rho in [0.25, 0.5, 0.75]:
+        for correlated_dims in [2,3,4,6,12]:
+            X_normal = GetData('normal', correlated_dims, rho)
+            X_t      = GetData('t', correlated_dims, rho)
+        X_mix = GetData('mix', correlated_dims, rho)
+        # now write all these datasets
+    
+    
+    pass
