@@ -2,10 +2,6 @@
 """
 Functions that simulates and loads in data for the thesis
 
-To do:
-    - maybe look at ways to adjust data set structure (may go for OOP)
-    - actually write csv's and implement checks - in a generate all datasets function
-
 Created on Wed Apr 20 14:31:58 2022
 
 @author: gebruiker

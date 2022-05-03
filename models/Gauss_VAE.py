@@ -300,6 +300,21 @@ class GaussVAE(nn.Module):
         plt.plot(range(epochs), LLs)
         plt.title('neg avg LLs')
         plt.show()
+        self.done()
         self.eval() # turn back into performance mode
         
+        return
+    
+    def done(self):
+        # Python 3.x code
+        # Imports
+        import tkinter
+        from tkinter import messagebox
+        
+        # This code is to hide the main tkinter window
+        root = tkinter.Tk()
+        root.withdraw()
+        
+        # Message Box
+        messagebox.showinfo("Done!", "The model is done fitting")
         return
