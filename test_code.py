@@ -30,15 +30,3 @@ X = GetData(datatype, correlated_dims, rho)
 
 
 #np.loadtxt(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets\')
-
-#%%
-# Imports
-import tkinter
-from tkinter import messagebox
-
-# This code is to hide the main tkinter window
-root = tkinter.Tk()
-root.withdraw()
-
-# Message Box
-messagebox.showinfo("Done!", "Autoencoder is fitted my dude")
