@@ -1,2 +1,3 @@
 data/datasets/*.csv
 test_code.py
+!data/datasets/__init__.py
