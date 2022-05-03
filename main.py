@@ -6,7 +6,6 @@ Main file that executes the code needed for the analysis of the thesis
 
 
 todo:
-    - make correlated data
     - finalize all models
     - code output and some performance analysis
     
@@ -18,12 +17,12 @@ def getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho
     from models.Gauss_VAE import GaussVAE
     #from models.GaussMix_VAE import GaussMixVAE
     from models.StudentT_VAE import StudentTVAE
-    from data.datafuncs import GetData
+    from data.datafuncs import GetData, GenerateAllDataSets
 
     print(f'Getting data, datatype = {datatype}')
     print('')
     X = GetData(datatype, correlated_dims, rho)
-    print(f'Data loaded, fitting initializing model of modeltype {modeltype}:')
+    print(f'Data loaded, initializing model of modeltype {modeltype}:')
     
     if modeltype == 'normal':
         model = GaussVAE(X, dim_Z)
@@ -33,7 +32,7 @@ def getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho
         #model = StudentTVAE(X, dim_Z)
         pass
     
-    print('Fitting model, and plotting REs and KLs')
+    print('Fitting model, and plotting REs and LLs')
     model.fit(epochs)
     
     # write something here that analyzes final residuals model.REs
@@ -43,11 +42,13 @@ def getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho
 
 def main():
     # handle imports 
+    from data.datafuncs import GenerateAllDataSets
     import os
     os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
+    #GenerateAllDataSets()
     
     modeltype       = 't' # normal, t, gausmix
-    datatype        = 't' # normal, t, returns, (interest rates)
+    datatype        = 't' # normal, t, mix, returns, (interest rates)
     correlated_dims = 3
     dim_Z           = 3
     rho             = 0.8

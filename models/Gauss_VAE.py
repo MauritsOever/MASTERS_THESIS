@@ -262,6 +262,8 @@ class GaussVAE(nn.Module):
         calculated loss as a product of RE and LL
 
         """
+        #dynamic_beta = RE_LL[0] / RE_LL[1]
+        #return RE_LL[0] + dynamic_beta * RE_LL[1]
         return RE_LL[0] + self.beta * RE_LL[1]
     
     def fit(self, epochs):
@@ -275,7 +277,7 @@ class GaussVAE(nn.Module):
         LLs  = []
         
         optimizer = torch.optim.AdamW(self.parameters(),
-                             lr = 1e-1,
+                             lr = 1e-2,
                              weight_decay = 1e-8) # specify some hyperparams for the optimizer
         
         for epoch in tqdm(range(epochs)):

@@ -66,16 +66,19 @@ def GenerateStudentTData(list_of_tuples, n, correlated_dims, rho):
     from scipy.stats import t
     array = np.zeros((n,len(list_of_tuples)))
     
-    DF = 5
     cols_per_dim = int(len(list_of_tuples)/correlated_dims)
-    rhos = np.array([rho] * cols_per_dim)
     
-    counter = 0
-    for dim in range(correlated_dims):
-        cop = GaussianCopula(dim = cols_per_dim)
-        cop._rhos = rhos
-        array[:,counter:counter+cols_per_dim] = cop.random(n)
-        counter += cols_per_dim
+    if cols_per_dim == 1:
+        for col in range(array.shape[1]):
+            array[:,col] = np.random.standard_t(df=list_of_tuples[col][2], size=n)
+            
+    else:
+        counter = 0
+        for dim in range(correlated_dims):
+            cop = GaussianCopula(dim = cols_per_dim)
+            cop.params = np.array([rho]*len(cop.params))
+            array[:,counter:counter+cols_per_dim] = cop.random(n)
+            counter += cols_per_dim
     
     for col in range(array.shape[1]):
         array[:,col] = t.ppf(array[:,col], df= list_of_tuples[col][2])
@@ -94,7 +97,7 @@ def GenerateMixOfData(n, rho):
     """
     import numpy as np
     from scipy.stats import bernoulli, t
-    from copulae import GumbelCopula, GaussianCopula
+    from copulae import GumbelCopula
     array = np.zeros((n,12))
     
     
@@ -171,7 +174,13 @@ def GetData(datatype, correlated_dims, rho):
 
     """
     import numpy as np
+    import os
+    dir = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets'
     n = 10000
+    filename = datatype+'_rho='+str(rho)+'_dims='+str(correlated_dims)+'.csv'
+    
+    if filename in os.listdir(dir):
+        return np.loadtxt(os.path.join(dir, filename), delimiter=',')
     
     if datatype == 'normal':
         # create check to see if its already generated------------------------------------------------------------------------------------------------
@@ -205,10 +214,11 @@ def GetData(datatype, correlated_dims, rho):
         print('This is gonna be a feature, but its not done yet!')
     else:
         print('datatype not recognized, please consult docstring for information on valid data types')
+        
 
 def GenerateAllDataSets():
     """
-    
+    Function that writes all simulated datasets needed for VAE performance analysis
 
     Returns
     -------
@@ -216,13 +226,20 @@ def GenerateAllDataSets():
 
     """
     # delete all datasets that are already there
+    import numpy as np
+    import os
+    dir = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets'
+    for file in os.listdir(dir):
+        os.remove(os.path.join(dir,file))
+        
     
     for rho in [0.25, 0.5, 0.75]:
         for correlated_dims in [2,3,4,6,12]:
             X_normal = GetData('normal', correlated_dims, rho)
+            np.savetxt(os.path.join(dir, 'normal_rho='+str(rho)+'_dims='+str(correlated_dims)+'.csv'), X_normal, delimiter=',')
             X_t      = GetData('t', correlated_dims, rho)
+            np.savetxt(os.path.join(dir, 't_rho='+str(rho)+'_dims='+str(correlated_dims)+'.csv'), X_t, delimiter=',')
         X_mix = GetData('mix', correlated_dims, rho)
-        # now write all these datasets
-    
-    
-    pass
+        np.savetxt(os.path.join(dir, 'mix_rho='+str(rho)+'.csv'), X_mix, delimiter=',')
+
+    return
