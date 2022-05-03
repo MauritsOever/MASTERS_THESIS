@@ -45,14 +45,15 @@ def main():
     from data.datafuncs import GenerateAllDataSets
     import os
     os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
-    #GenerateAllDataSets()
+    delete_existing = False
+    GenerateAllDataSets(delete_existing)
     
     modeltype       = 'normal' # normal, t, gausmix
     datatype        = 't' # normal, t, mix, returns, (interest rates)
     correlated_dims = 3
     dim_Z           = 3
     rho             = 0.8
-    epochs          = 10
+    epochs          = 2000
 
     
     getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho, epochs)

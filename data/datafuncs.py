@@ -214,30 +214,35 @@ def GetData(datatype, correlated_dims, rho):
         print('datatype not recognized, please consult docstring for information on valid data types')
         
 
-def GenerateAllDataSets():
+def GenerateAllDataSets(delete_existing = False):
     """
     Function that writes all simulated datasets needed for VAE performance analysis
+
+    Parameters
+    ----------
+    delete_existing : bool, optional
+        If true, this function will delete the existing simulating datafiles and generate new ones. The default is False.
 
     Returns
     -------
     None.
 
-    """
-    # delete all datasets that are already there
-    import numpy as np
-    import os
-    dir = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets'
-    for file in os.listdir(dir):
-        os.remove(os.path.join(dir,file))
+    """   
+    if delete_existing:
+        # delete all datasets that are already there
+        import numpy as np
+        import os
+        dir = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets'
+        for file in os.listdir(dir):
+            os.remove(os.path.join(dir,file))
         
-    
-    for rho in [0.25, 0.5, 0.75]:
-        for correlated_dims in [2,3,4,6,12]:
-            X_normal = GetData('normal', correlated_dims, rho)
-            np.savetxt(os.path.join(dir, 'normal_rho='+str(rho)+'_dims='+str(correlated_dims)+'.csv'), X_normal, delimiter=',')
-            X_t      = GetData('t', correlated_dims, rho)
-            np.savetxt(os.path.join(dir, 't_rho='+str(rho)+'_dims='+str(correlated_dims)+'.csv'), X_t, delimiter=',')
-        X_mix = GetData('mix', correlated_dims, rho)
-        np.savetxt(os.path.join(dir, 'mix_rho='+str(rho)+'.csv'), X_mix, delimiter=',')
+        for rho in [0.25, 0.5, 0.75]:
+            for correlated_dims in [2,3,4,6,12]:
+                X_normal = GetData('normal', correlated_dims, rho)
+                np.savetxt(os.path.join(dir, 'normal_rho='+str(rho)+'_dims='+str(correlated_dims)+'.csv'), X_normal, delimiter=',')
+                X_t      = GetData('t', correlated_dims, rho)
+                np.savetxt(os.path.join(dir, 't_rho='+str(rho)+'_dims='+str(correlated_dims)+'.csv'), X_t, delimiter=',')
+            X_mix = GetData('mix', correlated_dims, rho)
+            np.savetxt(os.path.join(dir, 'mix_rho='+str(rho)+'.csv'), X_mix, delimiter=',')
 
     return
