@@ -278,7 +278,7 @@ class GaussVAE(nn.Module):
         
         optimizer = torch.optim.AdamW(self.parameters(),
                              lr = 1e-2,
-                             weight_decay = 1e-8) # specify some hyperparams for the optimizer
+                             weight_decay = 1e-8, verbose=True) # specify some hyperparams for the optimizer
         
         for epoch in tqdm(range(epochs)):
             RE_LL = self.RE_LL_metric() # store RE and KL in tuple

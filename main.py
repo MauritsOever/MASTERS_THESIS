@@ -12,13 +12,17 @@ todo:
 
 @author: MauritsOever
 """
+import os
+from models.Gauss_VAE import GaussVAE
+#from models.GaussMix_VAE import GaussMixVAE
+from models.StudentT_VAE import StudentTVAE
+from data.datafuncs import GetData, GenerateAllDataSets
+
+
+
+
 
 def getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho, epochs):
-    from models.Gauss_VAE import GaussVAE
-    #from models.GaussMix_VAE import GaussMixVAE
-    from models.StudentT_VAE import StudentTVAE
-    from data.datafuncs import GetData, GenerateAllDataSets
-
     print(f'Getting data, datatype = {datatype}')
     print('')
     X = GetData(datatype, correlated_dims, rho)
@@ -42,8 +46,6 @@ def getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho
 
 def main():
     # handle imports 
-    from data.datafuncs import GenerateAllDataSets
-    import os
     os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
     delete_existing = False
     GenerateAllDataSets(delete_existing)
@@ -53,7 +55,7 @@ def main():
     correlated_dims = 3
     dim_Z           = 3
     rho             = 0.8
-    epochs          = 1000
+    epochs          = 100
 
     
     getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho, epochs)
