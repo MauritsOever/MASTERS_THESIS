@@ -23,7 +23,7 @@ class GaussVAE(nn.Module):
         - optimize hyperparams
     """
     
-    def __init__(self, X, dim_Z, layers=3, standardize = True, ):
+    def __init__(self, X, dim_Z, layers=3, standardize = True):
         """
         Constructs attributes, such as the autoencoder structure itself
 
@@ -59,8 +59,8 @@ class GaussVAE(nn.Module):
         
         
         self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
+        self.batch_wise = False
             
-        
         # sigmoid for now, but could also be ReLu, GeLu, tanh, etc
         self.encoder = self.construct_encoder(layers)
         self.decoder = self.construct_decoder(layers)
@@ -217,7 +217,6 @@ class GaussVAE(nn.Module):
         n = z.shape[0]
         K = z.shape[1]
 
-        mu = torch.Tensor(np.zeros(K))
         covar = torch.Tensor(np.eye(K))
         
         LL = (-n*K/2*torch.log(torch.tensor(2*np.pi)) - n/2*torch.log(torch.det(covar))
@@ -236,14 +235,20 @@ class GaussVAE(nn.Module):
         tuple of RE and LL
 
         """
-        z       = self.encoder(self.X)
+        # batch-wise optimisation
+        if self.batch_wise == True:
+            X = self.X[torch.randperm(self.X.shape[0])[0:100],:]
+        else:
+            X = self.X
+        
+        z       = self.encoder(X)
         
         x_prime = self.decoder(z)
         
         # get negative average log-likelihood here
         LL = self.ANLL(z)
         
-        self.REs = (self.X - x_prime)**2
+        self.REs = (X - x_prime)**2
         RE = self.REs.mean() # mean squared error of reconstruction
         
         return (RE, LL) # function stolen from Bergeron et al. (2021) 
@@ -278,7 +283,7 @@ class GaussVAE(nn.Module):
         
         optimizer = torch.optim.AdamW(self.parameters(),
                              lr = 1e-2,
-                             weight_decay = 1e-8, verbose=True) # specify some hyperparams for the optimizer
+                             weight_decay = 1e-8) # specify some hyperparams for the optimizer
         
         for epoch in tqdm(range(epochs)):
             RE_LL = self.RE_LL_metric() # store RE and KL in tuple

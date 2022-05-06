@@ -20,8 +20,6 @@ from data.datafuncs import GetData, GenerateAllDataSets
 
 
 
-
-
 def getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho, epochs):
     print(f'Getting data, datatype = {datatype}')
     print('')
@@ -50,12 +48,12 @@ def main():
     delete_existing = False
     GenerateAllDataSets(delete_existing)
     
-    modeltype       = 't' # normal, t, gausmix
+    modeltype       = 'normal' # normal, t, gausmix
     datatype        = 't' # normal, t, mix, returns, (interest rates)
     correlated_dims = 3
     dim_Z           = 3
-    rho             = 0.8
-    epochs          = 100
+    rho             = 0.75
+    epochs          = 1000
 
     
     getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho, epochs)
