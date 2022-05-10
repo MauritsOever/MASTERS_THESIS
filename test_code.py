@@ -18,10 +18,10 @@ import numpy as np
 import mpmath
 import matplotlib.pyplot as plt
 
-rho = 0.5
+rho = 0.75
 correlated_dims = 4
-dim_Z = 6
-datatype = 't'
+dim_Z = 4
+datatype = 'normal'
 
 GenerateAllDataSets()
 X = GetData(datatype, correlated_dims, rho)
@@ -29,7 +29,5 @@ X = GetData(datatype, correlated_dims, rho)
 # model = GaussVAE(X, dim_Z)
 model = GaussVAE(X, dim_Z, batch_wise=True)
 
-model.fit(epochs=1000)
-
-
+test = model.fit(epochs=1000)
 

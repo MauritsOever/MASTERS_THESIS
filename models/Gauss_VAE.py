@@ -58,7 +58,7 @@ class GaussVAE(nn.Module):
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
         self.n     = X.shape[0]
         
-        self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
+        self.beta = 1/10000 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
             
         # sigmoid for now, but could also be ReLu, GeLu, tanh, etc
@@ -214,19 +214,18 @@ class GaussVAE(nn.Module):
         Average negative log likelihood
 
         """
-        n = z.shape[0]
-        K = z.shape[1]
-
-        covar = torch.Tensor(np.eye(K))
+        covar = torch.Tensor(np.eye(self.dim_Z))
         
-        LL = -0.5*torch.sum(torch.Tensor([(z[row,:]@torch.inverse(covar)@z[row,:]) for row in range(n)]))
+        LL = 0
+        for row in range(self.n):
+            LL += -0.5 * z[row,:]@torch.inverse(covar)@z[row,:]
+            
+        LL = LL + self.LL_constant * self.n
         
-        LL = LL + self.LL_constant
-        
-        return -1*LL/n
+        return -1*LL/self.n
     
     
-    def RE_LL_metric(self):
+    def RE_LL_metric(self, epoch):
         """
         Function that calculates the loss of the autoencoder by
         RE and LL. 
@@ -237,8 +236,19 @@ class GaussVAE(nn.Module):
 
         """
         # batch-wise optimisation
+        batch = int(self.X.shape[0]/100)
+        epoch_scale_threshold = 0.6
+        
+        if self.X.shape[0] < 1000:
+            self.batch_wise = False
+        
+        if epoch > self.epochs * epoch_scale_threshold:
+            batch += int((self.X.shape[0]-batch) / 
+                         (self.epochs - self.epochs*epoch_scale_threshold) * 
+                         (epoch-self.epochs*epoch_scale_threshold))
+        
         if self.batch_wise == True:
-            X = self.X[torch.randperm(self.X.shape[0])[0:100],:]
+            X = self.X[torch.randperm(self.X.shape[0])[0:batch],:]
             self.n = X.shape[0]
         else:
             X = self.X
@@ -253,7 +263,7 @@ class GaussVAE(nn.Module):
         self.REs = (X - x_prime)**2
         RE = self.REs.mean() # mean squared error of reconstruction
         
-        return (RE, LL) # function stolen from Bergeron et al. (2021) 
+        return (RE, LL)
 
     
     def loss_function(self, RE_LL):
@@ -289,9 +299,13 @@ class GaussVAE(nn.Module):
         
         
         self.LL_constant = - self.n*self.dim_Z/2*torch.log(torch.tensor(2*np.pi)) - self.n/2*torch.log(torch.det(torch.Tensor(np.eye(self.dim_Z))))
+        self.epochs = epochs
+        
+        REs = np.zeros(epochs)
+        LLs = np.zeros(epochs)
         
         for epoch in tqdm(range(epochs)):
-            RE_LL = self.RE_LL_metric() # store RE and KL in tuple
+            RE_LL = self.RE_LL_metric(epoch) # store RE and KL in tuple
             loss = self.loss_function(RE_LL) # calculate loss function based on tuple
             
             # The gradients are set to zero,
@@ -301,8 +315,8 @@ class GaussVAE(nn.Module):
             loss.backward()
             optimizer.step()
             
-            REs += [RE_LL[0].detach().numpy()]
-            LLs += [RE_LL[1].detach().numpy()] # RE and KLs are stored for analysis
+            REs[epoch] = RE_LL[0].detach().numpy()
+            LLs[epoch] = RE_LL[1].detach().numpy() # RE and KLs are stored for analysis
         
         plt.plot(range(epochs), REs)
         plt.title('Reconstruction errors')
@@ -312,7 +326,8 @@ class GaussVAE(nn.Module):
         plt.show()
         self.eval() # turn back into performance mode
         self.done()
-        return
+        
+        return RE_LL
     
     def done(self):
         import win32api
