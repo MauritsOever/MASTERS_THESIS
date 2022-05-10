@@ -20,9 +20,16 @@ import matplotlib.pyplot as plt
 
 rho = 0.5
 correlated_dims = 4
+dim_Z = 6
 datatype = 't'
-
 
 GenerateAllDataSets()
 X = GetData(datatype, correlated_dims, rho)
-Xtens = torch.Tensor(X)
+
+# model = GaussVAE(X, dim_Z)
+model = GaussVAE(X, dim_Z, batch_wise=True)
+
+model.fit(epochs=1000)
+
+
+

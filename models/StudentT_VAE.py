@@ -57,10 +57,12 @@ class StudentTVAE(nn.Module):
 
         self.dim_X = X.shape[1]
         self.dim_Z = dim_Z
+        self.n     = X.shape[0]
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
         
         
         self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
+        self.nu   = 4
             
         
         # sigmoid for now, but could also be ReLu, GeLu, tanh, etc
@@ -216,25 +218,14 @@ class StudentTVAE(nn.Module):
         Average negative log likelihood
 
         """
-        nu = 4
-        
-        n = z.shape[0]
-        K = z.shape[1]
-        
-        covar = torch.Tensor(np.eye(K)) * (nu/(nu-2))
-        
-        gammas = float(mpmath.gamma(nu/2 + K/2)/mpmath.gamma(nu/2))
-        
-        c  = ((nu*np.pi)**(-K/2)) * gammas *torch.det(covar)**-0.5
         
         LL = 0
-        for row in range(n):
-            fx = (1 + 1/n*(z[row,:]@torch.inverse(covar)@z[row,:]))**((-n+K)/2)
-            LL += torch.log(c*fx)
+        for row in range(self.n):
+            fx = (1 + 1/self.n*(z[row,:]@torch.inverse(self.covar)@z[row,:]))**((-self.n+self.dim_Z)/2)
+            LL += torch.log(self.c*fx)
         
-        return -1*LL/n
+        return -1*LL/self.n
 
-        
     
     def RE_LL_metric(self):
         """
@@ -288,6 +279,11 @@ class StudentTVAE(nn.Module):
         optimizer = torch.optim.AdamW(self.parameters(),
                              lr = 1e-2,
                              weight_decay = 1e-8) # specify some hyperparams for the optimizer
+        
+        self.covar = torch.Tensor(np.eye(self.dim_Z)) * (self.nu/(self.nu-2))
+        
+        self.c  = (((self.nu*np.pi)**(-self.dim_Z/2)) * float(mpmath.gamma(self.nu/2 + self.dim_Z/2)/mpmath.gamma(self.nu/2)) * 
+              torch.det(self.covar)**-0.5)
         
         for epoch in tqdm(range(epochs)):
             RE_LL = self.RE_LL_metric() # store RE and KL in tuple

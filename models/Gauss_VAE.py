@@ -23,7 +23,7 @@ class GaussVAE(nn.Module):
         - optimize hyperparams
     """
     
-    def __init__(self, X, dim_Z, layers=3, standardize = True):
+    def __init__(self, X, dim_Z, layers=3, standardize = True, batch_wise=True):
         """
         Constructs attributes, such as the autoencoder structure itself
 
@@ -56,10 +56,10 @@ class GaussVAE(nn.Module):
         self.dim_X = X.shape[1]
         self.dim_Z = dim_Z
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
-        
+        self.n     = X.shape[0]
         
         self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
-        self.batch_wise = False
+        self.batch_wise = batch_wise
             
         # sigmoid for now, but could also be ReLu, GeLu, tanh, etc
         self.encoder = self.construct_encoder(layers)
@@ -219,11 +219,12 @@ class GaussVAE(nn.Module):
 
         covar = torch.Tensor(np.eye(K))
         
-        LL = (-n*K/2*torch.log(torch.tensor(2*np.pi)) - n/2*torch.log(torch.det(covar))
-              -0.5*torch.sum(torch.Tensor([(z[row,:]@torch.inverse(covar)@z[row,:]) for row in range(n)])))
+        LL = -0.5*torch.sum(torch.Tensor([(z[row,:]@torch.inverse(covar)@z[row,:]) for row in range(n)]))
+        
+        LL = LL + self.LL_constant
         
         return -1*LL/n
-        
+    
     
     def RE_LL_metric(self):
         """
@@ -238,6 +239,7 @@ class GaussVAE(nn.Module):
         # batch-wise optimisation
         if self.batch_wise == True:
             X = self.X[torch.randperm(self.X.shape[0])[0:100],:]
+            self.n = X.shape[0]
         else:
             X = self.X
         
@@ -284,6 +286,9 @@ class GaussVAE(nn.Module):
         optimizer = torch.optim.AdamW(self.parameters(),
                              lr = 1e-2,
                              weight_decay = 1e-8) # specify some hyperparams for the optimizer
+        
+        
+        self.LL_constant = - self.n*self.dim_Z/2*torch.log(torch.tensor(2*np.pi)) - self.n/2*torch.log(torch.det(torch.Tensor(np.eye(self.dim_Z))))
         
         for epoch in tqdm(range(epochs)):
             RE_LL = self.RE_LL_metric() # store RE and KL in tuple
