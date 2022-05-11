@@ -61,7 +61,7 @@ class GaussVAE(nn.Module):
         self.beta = 1/10000 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
             
-        # sigmoid for now, but could also be ReLu, GeLu, tanh, etc
+        # LeakyReLU for now, but could also be ReLu, GeLu, LeakyReLU, etc
         self.encoder = self.construct_encoder(layers)
         self.decoder = self.construct_decoder(layers)
         
@@ -82,12 +82,12 @@ class GaussVAE(nn.Module):
         """
         network = OrderedDict()
         network['0'] = nn.Linear(self.dim_X, self.dim_Y)
-        network['1'] = nn.Sigmoid()
+        network['1'] = nn.LeakyReLU() 
         
         count = 2
         for i in range(layers-2):
             network[str(count)]   = nn.Linear(self.dim_Y, self.dim_Y)
-            network[str(count+1)] = nn.Sigmoid()
+            network[str(count+1)] = nn.LeakyReLU()
             count += 2
         
         network[str(count)] = nn.Linear(self.dim_Y, self.dim_Z)
@@ -111,12 +111,12 @@ class GaussVAE(nn.Module):
         """
         network = OrderedDict()
         network['0'] = nn.Linear(self.dim_Z, self.dim_Y)
-        network['1'] = nn.Sigmoid()
+        network['1'] = nn.LeakyReLU()
         
         count = 2
         for i in range(layers-2):
             network[str(count)]   = nn.Linear(self.dim_Y, self.dim_Y)
-            network[str(count+1)] = nn.Sigmoid()
+            network[str(count+1)] = nn.LeakyReLU()
             count += 2
         
         network[str(count)] = nn.Linear(self.dim_Y, self.dim_X)
@@ -237,7 +237,7 @@ class GaussVAE(nn.Module):
         """
         # batch-wise optimisation
         batch = int(self.X.shape[0]/100)
-        epoch_scale_threshold = 0.6
+        epoch_scale_threshold = 0.8
         
         if self.X.shape[0] < 1000:
             self.batch_wise = False

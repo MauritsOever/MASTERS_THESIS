@@ -24,7 +24,7 @@ class StudentTVAE(nn.Module):
         - optimize hyperparams
     """
     
-    def __init__(self, X, dim_Z, layers=3, standardize = True):
+    def __init__(self, X, dim_Z, layers=3, standardize = True, batch_wise=True):
         """
         Constructs attributes, such as the autoencoder structure itself
 
@@ -63,9 +63,10 @@ class StudentTVAE(nn.Module):
         
         self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
         self.nu   = 4
+        self.batch_wise = batch_wise
             
         
-        # sigmoid for now, but could also be ReLu, GeLu, tanh, etc
+        # Tanh for now, but could also be ReLu, GeLu, tanh, etc
         self.encoder = self.construct_encoder(layers)
         self.decoder = self.construct_decoder(layers)
         
@@ -86,12 +87,12 @@ class StudentTVAE(nn.Module):
         """
         network = OrderedDict()
         network['0'] = nn.Linear(self.dim_X, self.dim_Y)
-        network['1'] = nn.Sigmoid()
+        network['1'] = nn.Tanh()
         
         count = 2
         for i in range(layers-2):
             network[str(count)]   = nn.Linear(self.dim_Y, self.dim_Y)
-            network[str(count+1)] = nn.Sigmoid()
+            network[str(count+1)] = nn.Tanh()
             count += 2
         
         network[str(count)] = nn.Linear(self.dim_Y, self.dim_Z)
@@ -115,12 +116,12 @@ class StudentTVAE(nn.Module):
         """
         network = OrderedDict()
         network['0'] = nn.Linear(self.dim_Z, self.dim_Y)
-        network['1'] = nn.Sigmoid()
+        network['1'] = nn.Tanh()
         
         count = 2
         for i in range(layers-2):
             network[str(count)]   = nn.Linear(self.dim_Y, self.dim_Y)
-            network[str(count+1)] = nn.Sigmoid()
+            network[str(count+1)] = nn.Tanh()
             count += 2
         
         network[str(count)] = nn.Linear(self.dim_Y, self.dim_X)
@@ -227,7 +228,7 @@ class StudentTVAE(nn.Module):
         return -1*LL/self.n
 
     
-    def RE_LL_metric(self):
+    def RE_LL_metric(self, epoch):
         """
         Function that calculates the loss of the autoencoder by
         RE and LL. 
@@ -237,6 +238,25 @@ class StudentTVAE(nn.Module):
         tuple of RE and LL
 
         """
+        # batch-wise optimisation
+        batch = int(self.X.shape[0]/100)
+        epoch_scale_threshold = 0.8
+        
+        if self.X.shape[0] < 1000:
+            self.batch_wise = False
+        
+        if epoch > self.epochs * epoch_scale_threshold:
+            batch += int((self.X.shape[0]-batch) / 
+                         (self.epochs - self.epochs*epoch_scale_threshold) * 
+                         (epoch-self.epochs*epoch_scale_threshold))
+        
+        if self.batch_wise == True:
+            X = self.X[torch.randperm(self.X.shape[0])[0:batch],:]
+            self.n = X.shape[0]
+        else:
+            X = self.X
+
+        
         z       = self.encoder(self.X)
         
         x_prime = self.decoder(z)
@@ -285,8 +305,10 @@ class StudentTVAE(nn.Module):
         self.c  = (((self.nu*np.pi)**(-self.dim_Z/2)) * float(mpmath.gamma(self.nu/2 + self.dim_Z/2)/mpmath.gamma(self.nu/2)) * 
               torch.det(self.covar)**-0.5)
         
-        for epoch in tqdm(range(epochs)):
-            RE_LL = self.RE_LL_metric() # store RE and KL in tuple
+        self.epochs = epochs
+        
+        for epoch in tqdm(range(self.epochs)):
+            RE_LL = self.RE_LL_metric(epoch) # store RE and KL in tuple
             loss = self.loss_function(RE_LL) # calculate loss function based on tuple
             
             # The gradients are set to zero,

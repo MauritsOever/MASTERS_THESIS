@@ -27,7 +27,7 @@ GenerateAllDataSets()
 X = GetData(datatype, correlated_dims, rho)
 
 # model = GaussVAE(X, dim_Z)
-model = GaussVAE(X, dim_Z, batch_wise=True)
+model = StudentTVAE(X, dim_Z, batch_wise=True)
 
 test = model.fit(epochs=1000)
-
+print(model.REs.mean())
