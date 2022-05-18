@@ -46,7 +46,7 @@ def main():
     # handle imports 
     os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
     delete_existing = False
-    GenerateAllDataSets(delete_existing)
+    GenerateAllDataSets(delete_existing=True)
     
     modeltype       = 'normal' # normal, t, gausmix
     datatype        = 't' # normal, t, mix, returns, (interest rates)
