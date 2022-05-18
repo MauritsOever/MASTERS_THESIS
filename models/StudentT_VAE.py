@@ -362,9 +362,10 @@ class StudentTVAE(nn.Module):
         n = 10000
         sigmas = torch.diagonal(covmat)
         
-        sims = torch.randn((n, len(sigmas)))
+        sims = torch.distributions.StudentT(self.nu).sample((n,len(sigmas)))
         
         for col in range(len(sigmas)):
             sims[:,col] = sims[:,col] * sigmas[col]
         
         return sims
+    
