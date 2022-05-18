@@ -24,7 +24,7 @@ class StudentTVAE(nn.Module):
         - optimize hyperparams
     """
     
-    def __init__(self, X, dim_Z, layers=3, standardize = True):
+    def __init__(self, X, dim_Z, layers=3, standardize = True, batch_wise=True):
         """
         Constructs attributes, such as the autoencoder structure itself
 
@@ -57,13 +57,16 @@ class StudentTVAE(nn.Module):
 
         self.dim_X = X.shape[1]
         self.dim_Z = dim_Z
+        self.n     = X.shape[0]
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
         
         
         self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
+        self.nu   = 5
+        self.batch_wise = batch_wise
             
         
-        # sigmoid for now, but could also be ReLu, GeLu, tanh, etc
+        # Tanh for now, but could also be ReLu, GeLu, tanh, etc
         self.encoder = self.construct_encoder(layers)
         self.decoder = self.construct_decoder(layers)
         
@@ -84,12 +87,12 @@ class StudentTVAE(nn.Module):
         """
         network = OrderedDict()
         network['0'] = nn.Linear(self.dim_X, self.dim_Y)
-        network['1'] = nn.Sigmoid()
+        network['1'] = nn.Tanh()
         
         count = 2
         for i in range(layers-2):
             network[str(count)]   = nn.Linear(self.dim_Y, self.dim_Y)
-            network[str(count+1)] = nn.Sigmoid()
+            network[str(count+1)] = nn.Tanh()
             count += 2
         
         network[str(count)] = nn.Linear(self.dim_Y, self.dim_Z)
@@ -113,12 +116,12 @@ class StudentTVAE(nn.Module):
         """
         network = OrderedDict()
         network['0'] = nn.Linear(self.dim_Z, self.dim_Y)
-        network['1'] = nn.Sigmoid()
+        network['1'] = nn.Tanh()
         
         count = 2
         for i in range(layers-2):
             network[str(count)]   = nn.Linear(self.dim_Y, self.dim_Y)
-            network[str(count+1)] = nn.Sigmoid()
+            network[str(count+1)] = nn.Tanh()
             count += 2
         
         network[str(count)] = nn.Linear(self.dim_Y, self.dim_X)
@@ -202,7 +205,7 @@ class StudentTVAE(nn.Module):
         
         return self.unstandardize_Xprime(self.decoder(self.encoder(data))).detach().numpy()
         
-    def ANLL(self, z):
+    def MM(self, z):
         """
         Function that calculates log likelihood based on latent space distribution
         and reduced data z
@@ -216,64 +219,81 @@ class StudentTVAE(nn.Module):
         Average negative log likelihood
 
         """
-        nu = 4
+        means = z.mean(dim=0)
+        diffs = z - means
+        std = z.std(dim=0)
+        zscores = diffs / std
+        skews = (torch.pow(zscores, 3.0)).mean(dim=0)
+        kurts = torch.pow(zscores, 4.0).mean(dim=0)
         
-        n = z.shape[0]
-        K = z.shape[1]
+        std_target = [1 * (1/ np.sqrt((self.nu-2)/self.nu))]
+        kurt_target = [6/(self.nu-4)]
         
-        covar = torch.Tensor(np.eye(K)) * (nu/(nu-2))
+        mean_score = (means**2).mean()
+        std_score = ((std - torch.Tensor(std_target*4))**2).mean()
+        skew_score = (skews**2).mean()
+        kurt_score = ((kurts - torch.Tensor(kurt_target*4))**2).mean()
         
-        gammas = float(mpmath.gamma(nu/2 + K/2)/mpmath.gamma(nu/2))
-        
-        c  = ((nu*np.pi)**(-K/2)) * gammas *torch.det(covar)**-0.5
-        
-        LL = 0
-        for row in range(n):
-            fx = (1 + 1/n*(z[row,:]@torch.inverse(covar)@z[row,:]))**((-n+K)/2)
-            LL += torch.log(c*fx)
-        
-        return -1*LL/n
+        return mean_score + std_score + skew_score + kurt_score
 
-        
-    
-    def RE_LL_metric(self):
+
+    def RE_MM_metric(self, epoch):
         """
         Function that calculates the loss of the autoencoder by
-        RE and LL. 
+        RE and MM. 
 
         Returns
         -------
-        tuple of RE and LL
+        tuple of RE and MM
 
         """
+        # batch-wise optimisation
+        batch = int(self.X.shape[0]/100)
+        epoch_scale_threshold = 0.95
+        
+        if self.X.shape[0] < 1000:
+            self.batch_wise = False
+        
+        if epoch > self.epochs * epoch_scale_threshold:
+            batch += int((self.X.shape[0]-batch) / 
+                         (self.epochs - self.epochs*epoch_scale_threshold) * 
+                         (epoch-self.epochs*epoch_scale_threshold))
+        
+        if self.batch_wise == True:
+            X = self.X[torch.randperm(self.X.shape[0])[0:batch],:]
+            self.n = X.shape[0]
+        else:
+            X = self.X
+
+        
         z       = self.encoder(self.X)
         
         x_prime = self.decoder(z)
         
         # get negative average log-likelihood here
-        LL = self.ANLL(z)
+        MM = self.MM(z)
         
         self.REs = (self.X - x_prime)**2
         RE = self.REs.mean() # mean squared error of reconstruction
         
-        return (RE, LL) # function stolen from Bergeron et al. (2021) 
+        return (RE, MM) # function stolen from Bergeron et al. (2021) 
 
     
-    def loss_function(self, RE_LL):
+    def loss_function(self, RE_MM):
         """
-        function that reconciles RE and LL in loss equation
+        function that reconciles RE and MM in loss equation
 
         Parameters
         ----------
-        RE_LL : tuple of RE and LL
+        RE_MM : tuple of RE and MM
 
         Returns
         -------
-        calculated loss as a product of RE and LL
+        calculated loss as a product of RE and MM
 
         """
-        # return RE_LL[0] + self.beta * RE_LL[1]
-        return RE_LL[0]/ 2 * RE_LL[0]**2 + RE_LL[1]
+        return RE_MM[0] + self.beta * RE_MM[1]
+        # return RE_MM[0]/ 2 * RE_MM[0]**2 + RE_MM[1]
     
     def fit(self, epochs):
         """
@@ -283,15 +303,22 @@ class StudentTVAE(nn.Module):
         
         self.train() # turn into training mode
         REs  = []
-        LLs  = []
+        MMs  = []
         
         optimizer = torch.optim.AdamW(self.parameters(),
                              lr = 1e-2,
                              weight_decay = 1e-8) # specify some hyperparams for the optimizer
         
-        for epoch in tqdm(range(epochs)):
-            RE_LL = self.RE_LL_metric() # store RE and KL in tuple
-            loss = self.loss_function(RE_LL) # calculate loss function based on tuple
+        self.covar = torch.Tensor(np.eye(self.dim_Z)) * (self.nu/(self.nu-2))
+        
+        self.c  = (((self.nu*np.pi)**(-self.dim_Z/2)) * float(mpmath.gamma(self.nu/2 + self.dim_Z/2)/mpmath.gamma(self.nu/2)) * 
+              torch.det(self.covar)**-0.5)
+        
+        self.epochs = epochs
+        
+        for epoch in tqdm(range(self.epochs)):
+            RE_MM = self.RE_MM_metric(epoch) # store RE and KL in tuple
+            loss = self.loss_function(RE_MM) # calculate loss function based on tuple
             
             # The gradients are set to zero,
             # the the gradient is computed and stored.
@@ -300,14 +327,14 @@ class StudentTVAE(nn.Module):
             loss.backward()
             optimizer.step()
             
-            REs += [RE_LL[0].detach().numpy()]
-            LLs += [RE_LL[1].detach().numpy()] # RE and KLs are stored for analysis
+            REs += [RE_MM[0].detach().numpy()]
+            MMs += [RE_MM[1].detach().numpy()] # RE and KLs are stored for analysis
         
         plt.plot(range(epochs), REs)
         plt.title('Reconstruction errors')
         plt.show()
-        plt.plot(range(epochs), LLs)
-        plt.title('neg avg LLs')
+        plt.plot(range(epochs), MMs)
+        plt.title('MMs')
         plt.show()
         self.eval() # turn back into performance mode
         self.done()
