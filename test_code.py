@@ -19,6 +19,7 @@ import pandas as pd
 import mpmath
 import matplotlib.pyplot as plt
 from scipy import stats
+import statsmodels.api as sm
 
 # rho = 0.75
 # correlated_dims = 4
@@ -35,10 +36,11 @@ X = np.log(X[1:,:]) - np.log(X[:-1,:])
 # X = GetData('t', 4, 0.75)
 
 # model = GaussVAE(X, dim_Z)
-model = GaussVAE(X, dim_Z, layers=4, batch_wise=False)
+model = StudentTVAE(X, dim_Z, layers=4, batch_wise=True)
 
 model.fit(epochs=10000)
 
+#%%
 z = model.encoder(model.X).detach().numpy()
 
 print(f'means are {z.mean(axis=0)}')
@@ -47,12 +49,16 @@ print(f'skews are {stats.skew(z)}')
 print(f'kurts are {stats.kurtosis(z)}')
 print('')
 
-plt.hist(z)
+_ = plt.hist(z)
 
-print(f'jb test of col 1 {stats.jarque_bera(z[:,0])}')
-print(f'jb test of col 2 {stats.jarque_bera(z[:,1])}')
-print(f'jb test of col 3 {stats.jarque_bera(z[:,2])}')
-print(f'jb test of col 4 {stats.jarque_bera(z[:,3])}')
+# print(f'jb test of col 1 {stats.jarque_bera(z[:,0])}')
+# print(f'jb test of col 2 {stats.jarque_bera(z[:,1])}')
+# print(f'jb test of col 3 {stats.jarque_bera(z[:,2])}')
+# print(f'jb test of col 4 {stats.jarque_bera(z[:,3])}')
+
+standard_t = np.random.standard_t(5, size=(10000, 4))
+
+fig = sm.qqplot(z[:,0], stats.t, fit=True, line="45")
 
 #%% okay now check if Z_extreme == X_extreme
 z_low  = z[z[:,0] < np.quantile(z[:,0], 0.10), :]
@@ -76,11 +82,11 @@ X_high = model.unstandardize_Xprime(model.decoder(torch.Tensor(z_high))).detach(
 X_extreme = model.unstandardize_Xprime(model.decoder(torch.Tensor(z_extreme))).detach().numpy()
 X_full = model.unstandardize_Xprime(model.decoder(torch.Tensor(z))).detach().numpy()
 
-plt.hist(X_low)
-plt.hist(X_mid)
-plt.hist(X_high)
-plt.hist(X_extreme)
-plt.hist(X_full)
+_ = plt.hist(X_low)
+_ = plt.hist(X_mid)
+_ = plt.hist(X_high)
+_ = plt.hist(X_extreme)
+_ = plt.hist(X_full)
 #%% 
 # Y = torch.Tensor([[1,2,3],
 #                   [4,5,6],

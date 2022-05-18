@@ -6,9 +6,10 @@ Main file that executes the code needed for the analysis of the thesis
 
 
 todo:
-    - finalize all models
+    - finalize all models - GMM is left
     - code output and some performance analysis
-    
+    - sim, garch, decode, VaR/ES
+    - backtest VaR/ES
 
 @author: MauritsOever
 """
