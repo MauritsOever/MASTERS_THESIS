@@ -36,9 +36,11 @@ X = np.log(X[1:,:]) - np.log(X[:-1,:])
 # X = GetData('t', 4, 0.75)
 
 # model = GaussVAE(X, dim_Z)
-model = StudentTVAE(X, dim_Z, layers=4, batch_wise=True)
+model = GaussVAE(X, dim_Z, layers=4, batch_wise=True)
 
 model.fit(epochs=10000)
+
+
 
 #%%
 z = model.encoder(model.X).detach().numpy()

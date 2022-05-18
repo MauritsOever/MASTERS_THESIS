@@ -345,3 +345,27 @@ class StudentTVAE(nn.Module):
         import win32api
         win32api.MessageBox(0, 'The model is done calibrating :)', 'Done!', 0x00001040) 
         return
+    
+    def sim_z(self, covmat):
+        """
+        
+
+        Parameters
+        ----------
+        covmat : torch tensor covariance matrix, can
+
+        Returns
+        -------
+        None.
+
+        """
+        n = 10000
+        sigmas = torch.diagonal(covmat)
+        
+        sims = torch.distributions.StudentT(self.nu).sample((n,len(sigmas)))
+        
+        for col in range(len(sigmas)):
+            sims[:,col] = sims[:,col] * sigmas[col]
+        
+        return sims
+    
