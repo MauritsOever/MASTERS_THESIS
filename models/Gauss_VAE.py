@@ -372,3 +372,6 @@ class GaussVAE(nn.Module):
             sims[:,col] = sims[:,col] * sigmas[col]
         
         return sims
+    
+    def GARCH_latent(self):
+        
