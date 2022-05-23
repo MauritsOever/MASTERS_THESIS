@@ -523,55 +523,112 @@ import scipy.optimize as opt
 import pandas as pd
 from scipy.stats import t
 import scipy
-
-df_real = np.random.normal(size=(100, 3))
-output_Q7(df_real)
-
+import torch
+from tqdm import tqdm
 
 class MGARCH:
     
     def __init__(self, data, dist):
-        self.data = data # tensor
+        import torch
+        import numpy as np
+        from tqdm import tqdm
+        import matplotlib.pyplot as plt
+        
+        self.data = data # torch implementation
         self.dist = dist
         
         self.K = data.shape[1]
         
-        # omega has K, A and B have 
-        self.vTheta = torch.Tensor([1]*self.K + [] []) # starting values for vTheta
+        # construct vTheta with starting values
+        A_vec = [0.96]
+        for i in range(self.K):
+            A_vec += [0]*i + [np.sqrt(0.02)]
+        
+        self.vTheta_start = torch.Tensor(A_vec) # starting values for vTheta
+        self.vTheta_start.requires_grad = True
+        
+        self.omega  = torch.cov(data.T)
         
         
     def normal_LL(self, vTheta):
         
-        vTheta_reparam = reparam(vTheta)
+        beta, A = self.reparam_vTheta(vTheta)        
+        sigma_0 = self.omega
         
-        omega = 
-        A = 
-        B = 
-        sigma_0 = torch.eye(self.K)
+        sigmas = [sigma_0]
         
+        LL = 0 
         for i in range(1, self.data.shape[0]):
-            sigma_t = 
-    
-    def fit(self):
+            obs = torch.reshape(self.data[i-1,:], (1,3))
+            sigmas += [(1-beta)*self.omega + A@(obs@obs.T - sigmas[i-1])@A.T + beta*sigmas[i-1]] # formula
+            LL += -0.5 * (torch.log(torch.linalg.det(sigmas[i-1])) + obs @ torch.linalg.inv(sigmas[i-1])@obs.T + self.K*torch.log(torch.Tensor([2*torch.pi])))
+                          #formula 
         
-
-
-#%% 
-import numpy as np
-K = 3
-param_count = K**2 + K + K
-theta_vec = np.linspace(1, param_count, num=param_count)
-A = np.full((K, K), 0)
-B = np.full((K, K), 0)
-
-omega = np.diag(theta_vec[0:K])
-theta_vec = theta_vec[K:]
-
-for i in range(K):
-    A[i, 0:i+1] = theta_vec[:i+1]
-    theta_vec = theta_vec[i+1:]
-
-for i in range(K):
-    B[i, 0:i+1] = theta_vec[:i+1]
-    theta_vec = theta_vec[i+1:]
+        return -1*LL/self.data.shape[0]
+            
+    def fit(self, epochs):
+        optimizer = torch.optim.AdamW([self.vTheta_start],
+                             lr = 1e-2,
+                             weight_decay = 1e-8) # specify some hyperparams for the optimizer
+        
+        self.LLs = []
+        
+        for epoch in tqdm(range(epochs)):
+            if self.dist == 'norm':
+                loss = self.normal_LL(self.vTheta_start)[0][0]
+            elif self.dist == 't':
+                raise NotImplementedError()
+            self.LLs += [loss.detach().numpy()]
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
+        plt.plot(self.LLs)
+        
+    def reparam_vTheta(self, vTheta):
+        beta = (1 + torch.exp(-vTheta[0]))**(-1)
+        vTheta = vTheta[1:]
+        
+        A = torch.full((self.K, self.K), fill_value=0.0)
+        
+        for i in range(self.K):
+            A[i, 0:i+1] = vTheta[:i+1]
+            vTheta = vTheta[i+1:]
+            
+        # reparam A
+        for i in range(A.shape[0]):
+            for j in range(A.shape[1]):
+                if i==j:
+                    A[i,j] = (1+torch.exp(-A[i,j]))**(-1)
+                if i > j:
+                    A[i,j] = (1/3)*(-1 + 2/(1+torch.exp(-A[i,j])))        
+                    
+        return beta, A
     
+    def print_params(self):
+             
+        beta, A = self.reparam_vTheta(self.vTheta_start)
+        
+        print(f'omega = {self.omega}')
+        print(f'beta  = {beta}')
+        print(f'A     = {A}')
+        return
+    
+    def store_sigmas(self):
+        beta, A = self.reparam_vTheta(self.vTheta_start)
+        
+        sigmas = [self.omega]
+        for i in range(1, self.data.shape[0]):
+            obs = torch.reshape(self.data[i-1,:], (1,3))
+            sigmas += [(1-beta)*self.omega + A@(obs@obs.T - sigmas[i-1])@A.T + beta*sigmas[i-1]] # formula
+            
+        self.sigmas = sigmas
+        return
+
+data = torch.randn((100,3))
+model = MGARCH(data, 't')
+# model.normal_LL(model.vTheta_start)[0][0].detach().numpy()
+
+model.fit(epochs=1000)
+model.print_params()
+model.store_sigmas()
