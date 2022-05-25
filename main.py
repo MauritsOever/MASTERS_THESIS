@@ -75,15 +75,15 @@ def RE_analysis():
                     REs75[simdim, ass_dims+1] = model75.REs.mean().detach().numpy()
             
             # print below here
-            print(f'corr = 0.25: ')
+            print('corr = 0.25: ')
             print(pd.DataFrame(REs25).round(decimals=3).to_latex(index=False))
             print('')
             
-            print(f'corr = 0.50: ')
+            print('corr = 0.50: ')
             print(pd.DataFrame(REs50).round(decimals=3).to_latex(index=False))
             print('')
             
-            print(f'corr = 0.75: ')
+            print('corr = 0.75: ')
             print(pd.DataFrame(REs75).round(decimals=3).to_latex(index=False))
             print('')
             
