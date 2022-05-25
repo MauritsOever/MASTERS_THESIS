@@ -27,7 +27,9 @@ import datetime
 def RE_analysis():
     begin_time = datetime.datetime.now()
     
-    os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
+    os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
+    # os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
+
     delete_existing = False
     GenerateAllDataSets(delete_existing=False)
     
