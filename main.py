@@ -43,13 +43,13 @@ def RE_analysis():
         for modeltype in ['normal', 't']:
             counter = 0 # needs 36 times
             
-            REs25 = np.zeros((len(simulated_dims),len(assumed_dims)+1))
-            REs50 = np.zeros((len(simulated_dims),len(assumed_dims)+1))
-            REs75 = np.zeros((len(simulated_dims),len(assumed_dims)+1))
+            REs25 = np.zeros((len(simulated_dims),len(assumed_dims)))
+            REs50 = np.zeros((len(simulated_dims),len(assumed_dims)))
+            REs75 = np.zeros((len(simulated_dims),len(assumed_dims)))
             
-            REs25[:,0] = np.array(simulated_dims)
-            REs50[:,0] = np.array(simulated_dims)
-            REs75[:,0] = np.array(simulated_dims)
+            # REs25[:,0] = np.array(simulated_dims)
+            # REs50[:,0] = np.array(simulated_dims)
+            # REs75[:,0] = np.array(simulated_dims)
             
             for simdim in range(len(simulated_dims)):
                 data25 = GetData(data_type, simulated_dims[simdim], 0.25)
@@ -70,28 +70,36 @@ def RE_analysis():
                     model50.fit(epochs)
                     model75.fit(epochs)
                     
-                    REs25[simdim, ass_dims+1] = model25.REs.mean().detach().numpy()
-                    REs50[simdim, ass_dims+1] = model50.REs.mean().detach().numpy()
-                    REs75[simdim, ass_dims+1] = model75.REs.mean().detach().numpy()
+                    REs25[simdim, ass_dims] = model25.REs.mean().detach().numpy()
+                    REs50[simdim, ass_dims] = model50.REs.mean().detach().numpy()
+                    REs75[simdim, ass_dims] = model75.REs.mean().detach().numpy()
                     counter += 1
                     print(f'count is {counter}')
             
             # print below here
+            REs25 = pd.DataFrame(REs25)
+            REs50 = pd.DataFrame(REs50)
+            REs75 = pd.DataFrame(REs75)
+            
+            REs25.index = simulated_dims
+            REs50.index = simulated_dims
+            REs75.index = simulated_dims
+
             
             print('')
             print(f'model of type {modeltype}')
             print('')
 
             print('corr = 0.25: ')
-            print(pd.DataFrame(REs25).round(decimals=3).to_latex(index=False))
+            print(REs25.style.format(precision=3, escape="latex").to_latex())
             print('')
             
             print('corr = 0.50: ')
-            print(pd.DataFrame(REs50).round(decimals=3).to_latex(index=False))
+            print(REs50.style.format(precision=3, escape="latex").to_latex())
             print('')
             
             print('corr = 0.75: ')
-            print(pd.DataFrame(REs75).round(decimals=3).to_latex(index=False))
+            print(REs75.style.format(precision=3, escape="latex").to_latex())
             print('')
             
     time = datetime.datetime.now() - begin_time
@@ -99,6 +107,7 @@ def RE_analysis():
     import win32api
     win32api.MessageBox(0, 'RE analysis is done :)', 'Done!', 0x00001040)
 
+    return REs75
 
 def GARCH_analysis():
     raise NotImplementedError()
