@@ -21,15 +21,18 @@ from models.StudentT_VAE import StudentTVAE
 from data.datafuncs import GetData, GenerateAllDataSets
 import numpy as np
 import pandas as pd
+import datetime
 
 
 def RE_analysis():
+    begin_time = datetime.datetime.now()
+    
     os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
     delete_existing = False
     GenerateAllDataSets(delete_existing=False)
     
     datatype        = 'normal' # normal, t, mix, returns
-    epochs          = 10000
+    epochs          = 10
     
     simulated_dims = [1,2,3,4,6,12]
     assumed_dims = [1,2,3,4,6,12]
@@ -83,6 +86,12 @@ def RE_analysis():
             print(f'corr = 0.75: ')
             print(pd.DataFrame(REs75).round(decimals=3).to_latex(index=False))
             print('')
+            
+    time = datetime.datetime.now() - begin_time
+    print(f'time to run was {time}')
+    import win32api
+    win32api.MessageBox(0, 'RE analysis is done :)', 'Done!', 0x00001040)
+
 
 def GARCH_analysis():
     raise NotImplementedError()
