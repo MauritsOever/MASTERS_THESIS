@@ -19,47 +19,78 @@ from models.Gauss_VAE import GaussVAE
 #from models.GaussMix_VAE import GaussMixVAE
 from models.StudentT_VAE import StudentTVAE
 from data.datafuncs import GetData, GenerateAllDataSets
+import numpy as np
+import pandas as pd
 
 
-
-def getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho, epochs):
-    print(f'Getting data, datatype = {datatype}')
-    print('')
-    X = GetData(datatype, correlated_dims, rho)
-    print(f'Data loaded, initializing model of modeltype {modeltype}:')
-    
-    if modeltype == 'normal':
-        model = GaussVAE(X, dim_Z)
-    elif modeltype == 't':
-        model = StudentTVAE(X, dim_Z)
-    elif modeltype == 'GausMix':
-        #model = StudentTVAE(X, dim_Z)
-        pass
-    
-    print('Fitting model, and plotting REs and LLs')
-    model.fit(epochs)
-    
-    # write something here that analyzes final residuals model.REs
-    
-    # write something here that generates data according to Z, then decode, 
-    # then unstandardize then compare distribution wise to X  
-
-def main():
-    # handle imports 
+def RE_analysis():
     os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
     delete_existing = False
-    GenerateAllDataSets(delete_existing=True)
+    GenerateAllDataSets(delete_existing=False)
     
-    modeltype       = 'normal' # normal, t, gausmix
-    datatype        = 't' # normal, t, mix, returns, (interest rates)
-    correlated_dims = 3
-    dim_Z           = 3
-    rho             = 0.75
-    epochs          = 1000
-
+    datatype        = 'normal' # normal, t, mix, returns
+    epochs          = 10000
     
-    getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho, epochs)
-    # then repeat this for 
+    simulated_dims = [1,2,3,4,6,12]
+    assumed_dims = [1,2,3,4,6,12]
 
+    for data_type in ['normal']: #, 't', 'mix']:
+        print(f'data of type {datatype}')
+        
+        for modeltype in ['normal', 't']:
+            print(f'model of type {modeltype}')
+            print('')
+            REs25 = np.zeros((len(simulated_dims),len(assumed_dims)+1))
+            REs50 = np.zeros((len(simulated_dims),len(assumed_dims)+1))
+            REs75 = np.zeros((len(simulated_dims),len(assumed_dims)+1))
+            
+            REs25[:,0] = np.array(simulated_dims)
+            REs50[:,0] = np.array(simulated_dims)
+            REs75[:,0] = np.array(simulated_dims)
+            
+            for simdim in range(len(simulated_dims)):
+                data25 = GetData(data_type, simulated_dims[simdim], 0.25)
+                data50 = GetData(data_type, simulated_dims[simdim], 0.50)
+                data75 = GetData(data_type, simulated_dims[simdim], 0.75)
+                
+                for ass_dims in range(len(assumed_dims)):
+                    if modeltype == 'normal':
+                        model25 = GaussVAE(data25, assumed_dims[ass_dims], done=False)
+                        model50 = GaussVAE(data50, assumed_dims[ass_dims], done=False)
+                        model75 = GaussVAE(data75, assumed_dims[ass_dims], done=False)
+                    elif modeltype == 't':
+                        model25 = StudentTVAE(data25, assumed_dims[ass_dims], done=False)
+                        model50 = StudentTVAE(data50, assumed_dims[ass_dims], done=False)
+                        model75 = StudentTVAE(data75, assumed_dims[ass_dims], done=False)
+                    
+                    model25.fit(epochs)
+                    model50.fit(epochs)
+                    model75.fit(epochs)
+                    
+                    REs25[simdim, ass_dims+1] = model25.REs.mean().detach().numpy()
+                    REs50[simdim, ass_dims+1] = model50.REs.mean().detach().numpy()
+                    REs75[simdim, ass_dims+1] = model75.REs.mean().detach().numpy()
+            
+            # print below here
+            print(f'corr = 0.25: ')
+            print(pd.DataFrame(REs25).round(decimals=3).to_latex(index=False))
+            print('')
+            
+            print(f'corr = 0.50: ')
+            print(pd.DataFrame(REs50).round(decimals=3).to_latex(index=False))
+            print('')
+            
+            print(f'corr = 0.75: ')
+            print(pd.DataFrame(REs75).round(decimals=3).to_latex(index=False))
+            print('')
+
+def GARCH_analysis():
+    raise NotImplementedError()
+
+
+def main():
+    RE_analysis()
+            
+            
 if __name__=='__main__':
     main()

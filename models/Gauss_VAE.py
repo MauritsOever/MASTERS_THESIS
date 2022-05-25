@@ -12,6 +12,7 @@ import numpy as np
 import torch
 from torch import nn
 import matplotlib.pyplot as plt
+from models.MGARCH_package import mgarch
 
 
 class GaussVAE(nn.Module):
@@ -23,7 +24,7 @@ class GaussVAE(nn.Module):
         - optimize hyperparams
     """
     
-    def __init__(self, X, dim_Z, layers=3, standardize = True, batch_wise=True):
+    def __init__(self, X, dim_Z, layers=3, standardize = True, batch_wise=True, done=False, plot=False):
         """
         Constructs attributes, such as the autoencoder structure itself
 
@@ -57,6 +58,8 @@ class GaussVAE(nn.Module):
         self.dim_Z = dim_Z
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
         self.n     = X.shape[0]
+        self.done = done
+        self.plot = plot
         
         self.beta = 10 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
@@ -210,7 +213,7 @@ class GaussVAE(nn.Module):
         kurts = torch.pow(zscores, 4.0).mean(dim=0) - 3
         
         mean_score = (means**2).mean()
-        std_score = ((std - torch.Tensor([1,1,1,1]))**2).mean()
+        std_score = ((std - torch.Tensor([1]*self.dim_Z))**2).mean()
         skew_score = (skews**2).mean()
         kurt_score = (kurts**2).mean()
         
@@ -332,15 +335,16 @@ class GaussVAE(nn.Module):
             
             REs[epoch] = RE_MM[0].detach().numpy()
             MMs[epoch] = RE_MM[1].detach().numpy() # RE and KLs are stored for analysis
-        
-        plt.plot(range(epochs), REs)
-        plt.title('Reconstruction errors')
-        plt.show()
-        plt.plot(range(epochs), MMs)
-        plt.title('neg avg MMs')
-        plt.show()
+        if self.plot:
+            plt.plot(range(epochs), REs)
+            plt.title('Reconstruction errors')
+            plt.show()
+            plt.plot(range(epochs), MMs)
+            plt.title('neg avg MMs')
+            plt.show()
         self.eval() # turn back into performance mode
-        self.done()
+        if self.done:
+            self.done()
         
         return 
     
@@ -349,8 +353,8 @@ class GaussVAE(nn.Module):
         win32api.MessageBox(0, 'The model is done calibrating :)', 'Done!', 0x00001040)
         return
 
-    def sim_z(self, covmat):
-        """
+    def sim_z(self, covmats): # make covmats a class attribute that stored with the 
+        """                   # calling of mgarch_latent
         
 
         Parameters
@@ -364,7 +368,7 @@ class GaussVAE(nn.Module):
 
         """
         n = 10000
-        sigmas = torch.diagonal(covmat)
+        sigmas = torch.diagonal(covmats)
         
         sims = torch.randn((n, len(sigmas)))
         
@@ -373,5 +377,15 @@ class GaussVAE(nn.Module):
         
         return sims
     
-    def GARCH_latent(self):
+    def mgarch_latent(self):
+        data = self.encoder(self.X).detach().numpy() # latent data from fitted autoencoder
+
+        garch = mgarch(dist='norm')
+        garch.fit(data)
+        garch.predict()
+        
+        self.sigmas = garch.H_t
+        return
+        
+        
         
