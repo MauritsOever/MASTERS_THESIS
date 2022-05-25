@@ -41,8 +41,8 @@ def RE_analysis():
         print(f'data of type {datatype}')
         
         for modeltype in ['normal', 't']:
-            print(f'model of type {modeltype}')
-            print('')
+            counter = 0 # needs 36 times
+            
             REs25 = np.zeros((len(simulated_dims),len(assumed_dims)+1))
             REs50 = np.zeros((len(simulated_dims),len(assumed_dims)+1))
             REs75 = np.zeros((len(simulated_dims),len(assumed_dims)+1))
@@ -73,8 +73,15 @@ def RE_analysis():
                     REs25[simdim, ass_dims+1] = model25.REs.mean().detach().numpy()
                     REs50[simdim, ass_dims+1] = model50.REs.mean().detach().numpy()
                     REs75[simdim, ass_dims+1] = model75.REs.mean().detach().numpy()
+                    counter += 1
+                    print(f'count is {counter}')
             
             # print below here
+            
+            print('')
+            print(f'model of type {modeltype}')
+            print('')
+
             print('corr = 0.25: ')
             print(pd.DataFrame(REs25).round(decimals=3).to_latex(index=False))
             print('')

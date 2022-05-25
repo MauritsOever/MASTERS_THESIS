@@ -318,7 +318,8 @@ class StudentTVAE(nn.Module):
         
         self.epochs = epochs
         
-        for epoch in tqdm(range(self.epochs)):
+        # for epoch in tqdm(range(self.epochs)):
+        for epoch in range(epochs):
             RE_MM = self.RE_MM_metric(epoch) # store RE and KL in tuple
             loss = self.loss_function(RE_MM) # calculate loss function based on tuple
             
