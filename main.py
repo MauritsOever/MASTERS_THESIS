@@ -35,7 +35,7 @@ def RE_analysis():
     epochs          = 10
     
     simulated_dims = [1,2,3,4,6,12]
-    assumed_dims = [1,2,3,4,6,12]
+    assumed_dims   = [1,2,3,4,6,12]
 
     for data_type in ['normal']: #, 't', 'mix']:
         print(f'data of type {datatype}')

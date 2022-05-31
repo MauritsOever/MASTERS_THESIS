@@ -37,7 +37,7 @@ dim_Z = 3
 X = GetData('normal', 3, 0.75)
 
 # model = GaussVAE(X, dim_Z)
-model = GaussVAE(X, dim_Z, layers=4, batch_wise=True)
+model = GaussVAE(X, dim_Z, layers=4, batch_wise=True, done=True)
 
 model.fit(epochs=10000)
 

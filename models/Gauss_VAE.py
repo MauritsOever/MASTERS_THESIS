@@ -58,7 +58,7 @@ class GaussVAE(nn.Module):
         self.dim_Z = dim_Z
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
         self.n     = X.shape[0]
-        self.done = done
+        self.done_bool = done
         self.plot = plot
         
         self.beta = 10 # setting beta to zero is equivalent to a normal autoencoder
@@ -344,7 +344,7 @@ class GaussVAE(nn.Module):
             plt.title('neg avg MMs')
             plt.show()
         self.eval() # turn back into performance mode
-        if self.done:
+        if self.done_bool:
             self.done()
         
         return 
