@@ -7,7 +7,7 @@ Created on Mon Apr 25 17:14:17 2022
 @author: MauritsvandenOeverPr
 """
 import os
-os.chdir(os.getcwd())
+os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
 
 from models.Gauss_VAE import GaussVAE
 #from models.GaussMix_VAE import GaussMixVAE
