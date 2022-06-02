@@ -60,7 +60,7 @@ class GaussVAE(nn.Module):
         self.done_bool = done
         self.plot = plot
         
-        self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
+        self.beta = 10 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
             
         # LeakyReLU for now, but could also be LeakyReLU, GeLu, LeakyLeakyReLU, etc
@@ -389,7 +389,7 @@ class GaussVAE(nn.Module):
         if data == None:
             sigmas = self.garch.sigmas
         else:
-            X = self.force_tensor(data)
+            X = self.standardize_X(self.force_tensor(data))
             z = self.encoder(X)
             sigmas = self.garch.estimate_sigmas(z)
         
@@ -401,7 +401,7 @@ class GaussVAE(nn.Module):
                 sims[row] = sigmas[i]@sims[row]
             
             # put through decoder    
-            Xsims = self.decoder(sims)
+            Xsims = self.unstandardize_Xprime(self.decoder(sims))
             # take quantile
             VaRs[i,:] = torch.quantile(Xsims, q, dim=0)
             # return time series of quantiles
