@@ -45,8 +45,9 @@ VaRs = model.latent_GARCH_HS()
 VaRsNP = VaRs.detach().numpy()
 
 for col in range(VaRs.shape[1]):
-    plt.plot(VaRsNP[:,col], alpha=0.3)
-    plt.show()
+    print(max(VaRsNP[:,col]))
+    #plt.plot(VaRsNP[:,col], alpha=0.3)
+    #plt.show()
 
 # z = model.encoder(model.X).detach().numpy()
 # print(f'means are {z.mean(axis=0)}')
