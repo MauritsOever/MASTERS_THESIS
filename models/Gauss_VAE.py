@@ -353,24 +353,58 @@ class GaussVAE(nn.Module):
         win32api.MessageBox(0, 'The model is done calibrating :)', 'Done!', 0x00001040)
         return
     
-    def fit_garch_latent(self):
+    def fit_garch_latent(self, epochs=None):
         from models.MGARCH import robust_garch_torch
         from tqdm import tqdm
 
         data = self.encoder(self.X) # latent data from fitted autoencoder
 
         garch = robust_garch_torch(data, dist='norm')
-        garch.fit(epochs=100)
+        if epochs == None:
+            epochs = 100
+        
+        garch.fit(epochs)
         garch.store_sigmas()
         self.garch = garch
         
         return
+    
+    def latent_GARCH_HS(self, data = None):
+        """
+        Simulate data and take VaR and ES for all days in the data
         
-    def latent_garch_sim(self):
-        self.fit_garch_latent()
-        
-        for i in range(len(self.sigmas)):
-            cholesky = torch.linalg.cholesky(self.garch.sigmas[i])
-            print(cholesky)
+        Parameters
+        ----------
+        data : float tensor, np array or pd dataframe of data. if data is passed then analysis is out-of-sample
 
+        Returns
+        -------
+        None.
+
+        """
+        from tqdm import tqdm
+        n = 1000
+        q = 0.05
         
+        if data == None:
+            sigmas = self.garch.sigmas
+        else:
+            X = self.force_tensor(data)
+            z = self.encoder(X)
+            sigmas = self.garch.estimate_sigmas(z)
+        
+        VaRs = torch.empty((len(sigmas), self.dim_X))
+        for i in tqdm(range(len(sigmas))):
+            l = torch.linalg.cholesky(sigmas[i])
+            sims = torch.randn((n, sigmas[0].shape[0]))
+            for row in range(n):
+                sims[row] = sigmas[i]@sims[row]
+            
+            # put through decoder    
+            Xsims = self.decoder(sims)
+            # take quantile
+            VaRs[i,:] = torch.quantile(Xsims, q, dim=0)
+            # return time series of quantiles
+            
+        return VaRs
+            

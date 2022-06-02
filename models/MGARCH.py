@@ -288,4 +288,13 @@ class robust_garch_torch:
         for row in range(1, self.n):
             obs = torch.reshape(self.data[row,:], (self.K, 1))
             self.sigmas += [(1-beta)*self.omega + A@(obs@obs.T - self.sigmas[row-1])@A.T + beta*self.sigmas[row-1]]
-
+    
+    def estimate_sigmas(self, data):
+        beta, A = self.construct_params(self.params)
+        sigmas = [torch.cov(data.T)]
+        for row in range(1, data.shape[0]):
+            obs = torch.reshape(data[row,:], (data.shape[1], 1))
+            sigmas += [(1-beta)*sigmas[0] + A@(obs@obs.T - sigmas[row-1])@A.T + beta*sigmas[row-1]]
+            
+        return sigmas
+    
