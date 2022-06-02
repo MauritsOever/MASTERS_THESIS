@@ -8,9 +8,9 @@ Created on Tue May 24 09:27:29 2022
 from scipy.optimize import minimize
 import numpy as np
 from scipy.special import gamma
+import torch
 
-
-class mgarch:
+class DCC_garch:
     
     def __init__(self, dist = 'norm'):
         if dist == 'norm' or dist == 't':
@@ -172,4 +172,120 @@ class mgarch:
             self.b = res.x[1]
             self.dof = res.x[2]
             return {'mu': self.mean, 'alpha': self.a, 'beta': self.b, 'dof': self.dof} 
+
+#%%
+#########################################################################################
+from scipy.optimize import minimize
+import numpy as np
+from scipy.special import gamma
+import torch
+
+class robust_garch_torch:
+    
+    def __init__(self, data, dist):
+        self.data = self.force_tensor(data)
+        self.n = data.shape[0]
+        self.K = data.shape[1]
+        # init params
+        self.omega = torch.cov(data.T)
+        print(self.omega)
+        self.dist = dist  #'normal', 't', 'gaussmix'
         
+        paramslist = [0.96]
+        for dim in range(self.K):
+            paramslist += [0]*dim + [0.14]
+        
+        self.params =  torch.Tensor(paramslist)
+        self.params.requires_grad = True
+        
+    def force_tensor(self, data):
+        """
+        forces the given object into a float tensor
+
+        Parameters
+        ----------
+        X : np.array or pd.DataFrame of data
+
+        Returns
+        -------
+        float tensor of given data
+
+        """
+        # write code that forces X to be a tensor
+        if type(data) != torch.Tensor:
+            return torch.Tensor(data).float()
+        else:
+            return data.float() # force it to float anyway
+
+        
+    def loglik(self, params):
+        # construct coefs
+        beta, A = self.construct_params(params)                    
+        # calc log likelihood
+        sigmat = self.omega
+        loglik = 0
+        for row in range(1, self.n):
+            obs = torch.reshape(self.data[row,:], (self.K, 1))
+            sigmat = (1-beta)*self.omega + A@(obs@obs.T - sigmat)@A.T + beta*sigmat
+            loglik += -0.5*(torch.log(torch.linalg.det(sigmat)) + (obs.T@torch.linalg.inv(sigmat)@obs) 
+                            + self.K*torch.log(torch.Tensor([torch.pi*2])))
+        return (-1*loglik[0])/self.n
+    
+    def fit(self, epochs):
+        import matplotlib.pyplot as plt
+        from tqdm import tqdm
+        
+        optimizer = torch.optim.AdamW([self.params],
+                             lr = 1e-2,
+                             weight_decay = 1e-8) # specify some hyperparams for the optimizer
+
+        
+        logliks = [0]
+        print(f'fitting MGARCH(1,1) for {epochs} epochs...')
+        for epoch in tqdm(range(epochs)):
+            loss = self.loglik(self.params)
+            logliks += [loss.detach().numpy()]
+            optimizer.zero_grad()
+            loss.backward(retain_graph=True)
+            optimizer.step()
+            
+        plt.plot(logliks)
+        plt.show()
+        beta, A = self.construct_params(self.params)
+        print(f'beta = {beta.detach().numpy()}')
+        print('A    = ')
+        print(A.detach().numpy())
+        
+        print('storing sigmas...')
+        self.store_sigmas()
+        return
+    
+    def construct_params(self, params):
+        params = self.params
+        beta = params[0]
+        params = params[1:]
+        
+        A = torch.zeros((self.K, self.K))
+        for i in range(self.K):
+            params = params[i:]
+            A[i, 0:i+1] = params[0:i+1]
+            
+        # reparam
+        beta = 1/ (1+torch.exp(-beta))
+        
+        for i in range(self.K):
+            for j in range(self.K):
+                if i == j:
+                    A[i,j] = 1 / (1+torch.exp(-A[i,j]))
+                if i < j:
+                    1/(1/3)*(-1 + 2/(torch.exp(-A[i,j])))
+                    
+        return beta, A
+    
+    def store_sigmas(self):
+        beta, A = self.construct_params(self.params)                    
+        self.sigmas = [self.omega]
+        for row in range(1, self.n):
+            obs = torch.reshape(self.data[row,:], (self.K, 1))
+            self.sigmas += [(1-beta)*self.omega + A@(obs@obs.T - self.sigmas[row-1])@A.T + beta*self.sigmas[row-1]]
+

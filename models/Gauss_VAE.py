@@ -12,7 +12,6 @@ import numpy as np
 import torch
 from torch import nn
 import matplotlib.pyplot as plt
-from models.MGARCH_package import mgarch
 
 
 class GaussVAE(nn.Module):
@@ -61,10 +60,10 @@ class GaussVAE(nn.Module):
         self.done_bool = done
         self.plot = plot
         
-        self.beta = 10 # setting beta to zero is equivalent to a normal autoencoder
+        self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
             
-        # LeakyReLU for now, but could also be ReLu, GeLu, LeakyReLU, etc
+        # LeakyReLU for now, but could also be LeakyReLU, GeLu, LeakyLeakyReLU, etc
         self.encoder = self.construct_encoder(layers)
         self.decoder = self.construct_decoder(layers)
         
@@ -205,41 +204,41 @@ class GaussVAE(nn.Module):
         
     def MM(self, z):
         # UNIVARIATE SEPARATE        
-        means = z.mean(dim=0)
-        diffs = z - means
-        std = z.std(dim=0)
-        zscores = diffs / std
-        skews = (torch.pow(zscores, 3.0)).mean(dim=0)
-        kurts = torch.pow(zscores, 4.0).mean(dim=0) - 3
+        # means = z.mean(dim=0)
+        # diffs = z - means
+        # std = z.std(dim=0)
+        # zscores = diffs / std
+        # skews = (torch.pow(zscores, 3.0)).mean(dim=0)
+        # kurts = torch.pow(zscores, 4.0).mean(dim=0) - 3
         
-        mean_score = (means**2).mean()
-        std_score = ((std - torch.Tensor([1]*self.dim_Z))**2).mean()
-        skew_score = (skews**2).mean()
-        kurt_score = (kurts**2).mean()
+        # mean_score = (means**2).mean()
+        # std_score = ((std - torch.Tensor([1]*self.dim_Z))**2).mean()
+        # skew_score = (skews**2).mean()
+        # kurt_score = (kurts**2).mean()
         
         # MULTIVARIATE
-        # cov_z = torch.cov(torch.t(z))
+        cov_z = torch.cov(z.T)
         
-        # # first moment, expected value of all variables
-        # mean_score = torch.linalg.norm(z.mean(dim=0), ord=2)
+        # first moment, expected value of all variables
+        mean_score = torch.linalg.norm(z.mean(dim=0), ord=2)
         
-        # # second moment
-        # std_score = torch.linalg.norm(cov_z - torch.eye(z.shape[1]), ord=2)
+        # second moment
+        std_score = torch.linalg.norm(cov_z - torch.eye(z.shape[1]), ord=2)
         
-        # # third and fourth moment
-        # Y = torch.t(torch.linalg.inv(torch.linalg.cholesky(cov_z))@torch.t(z - z.mean(dim=0)))
+        # third and fourth moment
+        Y = torch.t(torch.linalg.inv(torch.linalg.cholesky(cov_z))@torch.t(z - z.mean(dim=0)))
         
-        # kron3 = torch.empty((Y.shape[0], Y.shape[1]**3))
-        # vec   = torch.empty(Y.shape[0])
+        kron3 = torch.empty((Y.shape[0], Y.shape[1]**3))
+        vec   = torch.empty(Y.shape[0])
         
-        # for row in range(Y.shape[0]):
-        #     kron3[row,:] = torch.kron(Y[row,:], torch.kron(Y[row,], Y[row,:]))
-        #     vec[row]     = Y[row,:]@torch.t(Y[row,:])
+        for row in range(Y.shape[0]):
+            kron3[row,:] = torch.kron(Y[row,:], torch.kron(Y[row,], Y[row,:]))
+            vec[row]     = Y[row,:]@torch.t(Y[row,:])
         
-        # skew_score = torch.linalg.norm(kron3.mean(dim=0), ord=2) # works but subject to sample var
-        # kurt_score = torch.mean(vec - 3)
+        skew_score = torch.linalg.norm(kron3.mean(dim=0), ord=2) # works but subject to sample var
+        kurt_score = torch.mean(vec - 3)
         
-        return mean_score + std_score + skew_score + kurt_score
+        return mean_score + 10*std_score + skew_score + 20*kurt_score
     
     
     def RE_MM_metric(self, epoch):
@@ -304,7 +303,7 @@ class GaussVAE(nn.Module):
     
     def fit(self, epochs):
         """
-        Function that fits the model based on previously passed data
+        Function that fits the model based on instantiated data
         """
         from tqdm import tqdm
         
@@ -322,8 +321,8 @@ class GaussVAE(nn.Module):
         REs = np.zeros(epochs)
         MMs = np.zeros(epochs)
         
-        #for epoch in tqdm(range(epochs)):
-        for epoch in range(epochs):
+        for epoch in tqdm(range(epochs)):
+        #for epoch in range(epochs):
             RE_MM = self.RE_MM_metric(epoch) # store RE and KL in tuple
             loss = self.loss_function(RE_MM) # calculate loss function based on tuple
             
@@ -353,40 +352,25 @@ class GaussVAE(nn.Module):
         import win32api
         win32api.MessageBox(0, 'The model is done calibrating :)', 'Done!', 0x00001040)
         return
-
-    def sim_z(self, covmats): # make covmats a class attribute that stored with the 
-        """                   # calling of mgarch_latent
-        
-
-        Parameters
-        ----------
-        covmat : TYPE
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
-        """
-        n = 10000
-        sigmas = torch.diagonal(covmats)
-        
-        sims = torch.randn((n, len(sigmas)))
-        
-        for col in range(len(sigmas)):
-            sims[:,col] = sims[:,col] * sigmas[col]
-        
-        return sims
     
-    def mgarch_latent(self):
-        data = self.encoder(self.X).detach().numpy() # latent data from fitted autoencoder
+    def fit_garch_latent(self):
+        from models.MGARCH import robust_garch_torch
+        from tqdm import tqdm
 
-        garch = mgarch(dist='norm')
-        garch.fit(data)
-        garch.predict()
+        data = self.encoder(self.X) # latent data from fitted autoencoder
+
+        garch = robust_garch_torch(data, dist='norm')
+        garch.fit(epochs=100)
+        garch.store_sigmas()
+        self.garch = garch
         
-        self.sigmas = garch.H_t
         return
         
+    def latent_garch_sim(self):
+        self.fit_garch_latent()
         
+        for i in range(len(self.sigmas)):
+            cholesky = torch.linalg.cholesky(self.garch.sigmas[i])
+            print(cholesky)
+
         

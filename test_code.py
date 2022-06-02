@@ -7,12 +7,12 @@ Created on Mon Apr 25 17:14:17 2022
 @author: MauritsvandenOeverPr
 """
 import os
-os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
+# os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
 
 from models.Gauss_VAE import GaussVAE
 #from models.GaussMix_VAE import GaussMixVAE
 from models.StudentT_VAE import StudentTVAE
-from models.MGARCH_package import mgarch
+from models.MGARCH import DCC_garch, robust_garch_torch
 from data.datafuncs import GetData, GenerateAllDataSets
 import torch
 import numpy as np
@@ -22,11 +22,9 @@ import matplotlib.pyplot as plt
 from scipy import stats
 import statsmodels.api as sm
 
-# rho = 0.75
-# correlated_dims = 4
-dim_Z = 3
-# datatype = 'normal'
+# GenerateAllDataSets(delete_existing=True)
 
+dim_Z = 4
 # clean and write
 # X = pd.read_csv(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets\real_sets\MO_THESIS.03.csv').drop(0, axis=0)
 # X = X.ffill()
@@ -34,21 +32,27 @@ dim_Z = 3
 # X = np.array(X.iloc[:,1:])
 # X = X.astype(float)
 # X = np.log(X[1:,:]) - np.log(X[:-1,:])
-X = GetData('normal', 3, 0.75)
+X = GetData('normal', 4, 0.75) # normal, t, mix
 
 # model = GaussVAE(X, dim_Z)
 model = GaussVAE(X, dim_Z, layers=4, batch_wise=True, done=True)
 
 model.fit(epochs=10000)
 
-model.mgarch_latent()
+z = model.encoder(model.X).detach().numpy()
 
+print(f'means are {z.mean(axis=0)}')
+print(f'stds are {z.std(axis=0)}')
+print(f'skews are {stats.skew(z)}')
+print(f'kurts are {stats.kurtosis(z)}')
+print('')
+
+
+#%%
+model.fit_garch_latent()
 #%% 
-model.sigmas
-max_sig = 0
-for mat in model.sigmas:
-    if mat[1,1] > max_sig:
-        max_sig = mat[1,1]
+for mat in model.garch.sigmas:
+    torch.linalg.cholesky(mat)
 #%%
 z = model.encoder(model.X).detach().numpy()
 
