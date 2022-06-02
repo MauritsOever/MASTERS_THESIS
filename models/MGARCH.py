@@ -4,7 +4,6 @@ Created on Tue May 24 09:27:29 2022
 
 @author: MauritsvandenOeverPr
 """
-
 from scipy.optimize import minimize
 import numpy as np
 from scipy.special import gamma
