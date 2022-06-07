@@ -37,15 +37,15 @@ X = np.log(X[1:,:]) - np.log(X[:-1,:])
 # model = GaussVAE(X, dim_Z)
 model = GaussVAE(X, dim_Z, layers=3, batch_wise=True, done=True)
 
-model.fit(epochs=10000)
+model.fit(epochs=2500)
 
-model.fit_garch_latent(epochs=100)
+model.fit_garch_latent(epochs=50)
 
 VaRs = model.latent_GARCH_HS()
 VaRsNP = VaRs.detach().numpy()
 
 for col in range(VaRs.shape[1]):
-    print(max(VaRsNP[:,col]))
+    print(min(VaRsNP[:,col]))
     #plt.plot(VaRsNP[:,col], alpha=0.3)
     #plt.show()
 

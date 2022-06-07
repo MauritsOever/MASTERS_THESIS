@@ -63,7 +63,7 @@ class GaussVAE(nn.Module):
         self.beta = 10 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
             
-        # LeakyReLU for now, but could also be LeakyReLU, GeLu, LeakyLeakyReLU, etc
+        # LeakyReLU for now
         self.encoder = self.construct_encoder(layers)
         self.decoder = self.construct_decoder(layers)
         
@@ -367,6 +367,15 @@ class GaussVAE(nn.Module):
         garch.store_sigmas()
         self.garch = garch
         
+        # from models.MGARCH import DCC_garch
+        # data = self.encoder(self.X).detach().numpy()
+        
+        # garch = DCC_garch(dis='norm')
+        # garch.fit(data)
+        # garch.predict()
+        # garch.sigmas = garch.H_t
+        # self.garch = garch
+        
         return
     
     def latent_GARCH_HS(self, data = None):
@@ -386,25 +395,31 @@ class GaussVAE(nn.Module):
         n = 1000
         q = 0.05
         
-        if data == None:
-            sigmas = self.garch.sigmas
-        else:
-            X = self.standardize_X(self.force_tensor(data))
-            z = self.encoder(X)
-            sigmas = self.garch.estimate_sigmas(z)
+        try:
+            if data == None:
+                sigmas = self.garch.sigmas
+            else:
+                X = self.standardize_X(self.force_tensor(data))
+                z = self.encoder(X)
+                sigmas = self.garch.estimate_sigmas(z)
+        except:
+            print("Error: garch is not yet fitted")
+            return
         
         VaRs = torch.empty((len(sigmas), self.dim_X))
         for i in tqdm(range(len(sigmas))):
             l = torch.linalg.cholesky(sigmas[i])
             sims = torch.randn((n, sigmas[0].shape[0]))
             for row in range(n):
-                sims[row] = sigmas[i]@sims[row]
+                sims[row] = l@sims[row]
             
             # put through decoder    
             Xsims = self.unstandardize_Xprime(self.decoder(sims))
             # take quantile
             VaRs[i,:] = torch.quantile(Xsims, q, dim=0)
             # return time series of quantiles
-            
+                
         return VaRs
+
+
             
