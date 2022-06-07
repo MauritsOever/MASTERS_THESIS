@@ -24,7 +24,7 @@ class StudentTVAE(nn.Module):
         - optimize hyperparams
     """
     
-    def __init__(self, X, dim_Z, layers=3, standardize = True, batch_wise=True):
+    def __init__(self, X, dim_Z, layers=3, standardize = True, batch_wise=True, done=False, plot=False):
         """
         Constructs attributes, such as the autoencoder structure itself
 
@@ -59,6 +59,8 @@ class StudentTVAE(nn.Module):
         self.dim_Z = dim_Z
         self.n     = X.shape[0]
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
+        self.done = done
+        self.plot = plot
         
         
         self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
@@ -230,9 +232,9 @@ class StudentTVAE(nn.Module):
         kurt_target = [6/(self.nu-4)]
         
         mean_score = (means**2).mean()
-        std_score = ((std - torch.Tensor(std_target*4))**2).mean()
+        std_score = ((std - torch.Tensor([std_target]*self.dim_Z))**2).mean()
         skew_score = (skews**2).mean()
-        kurt_score = ((kurts - torch.Tensor(kurt_target*4))**2).mean()
+        kurt_score = ((kurts - torch.Tensor([kurt_target]*self.dim_Z))**2).mean()
         
         return mean_score + std_score + skew_score + kurt_score
 
@@ -316,7 +318,8 @@ class StudentTVAE(nn.Module):
         
         self.epochs = epochs
         
-        for epoch in tqdm(range(self.epochs)):
+        # for epoch in tqdm(range(self.epochs)):
+        for epoch in range(epochs):
             RE_MM = self.RE_MM_metric(epoch) # store RE and KL in tuple
             loss = self.loss_function(RE_MM) # calculate loss function based on tuple
             
@@ -330,14 +333,16 @@ class StudentTVAE(nn.Module):
             REs += [RE_MM[0].detach().numpy()]
             MMs += [RE_MM[1].detach().numpy()] # RE and KLs are stored for analysis
         
-        plt.plot(range(epochs), REs)
-        plt.title('Reconstruction errors')
-        plt.show()
-        plt.plot(range(epochs), MMs)
-        plt.title('MMs')
-        plt.show()
+        if self.plot:
+            plt.plot(range(epochs), REs)
+            plt.title('Reconstruction errors')
+            plt.show()
+            plt.plot(range(epochs), MMs)
+            plt.title('MMs')
+            plt.show()
         self.eval() # turn back into performance mode
-        self.done()
+        if self.done:
+            self.done()
         
         return
     
@@ -369,3 +374,4 @@ class StudentTVAE(nn.Module):
         
         return sims
     
+# why is this file corrupt?

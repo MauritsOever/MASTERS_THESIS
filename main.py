@@ -19,47 +19,105 @@ from models.Gauss_VAE import GaussVAE
 #from models.GaussMix_VAE import GaussMixVAE
 from models.StudentT_VAE import StudentTVAE
 from data.datafuncs import GetData, GenerateAllDataSets
+import numpy as np
+import pandas as pd
+import datetime
 
 
+def RE_analysis():
+    begin_time = datetime.datetime.now()
+    
+    os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
+    # os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
 
-def getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho, epochs):
-    print(f'Getting data, datatype = {datatype}')
-    print('')
-    X = GetData(datatype, correlated_dims, rho)
-    print(f'Data loaded, initializing model of modeltype {modeltype}:')
+    delete_existing = False
+    GenerateAllDataSets(delete_existing=False)
     
-    if modeltype == 'normal':
-        model = GaussVAE(X, dim_Z)
-    elif modeltype == 't':
-        model = StudentTVAE(X, dim_Z)
-    elif modeltype == 'GausMix':
-        #model = StudentTVAE(X, dim_Z)
-        pass
+    datatype        = 'normal' # normal, t, mix, returns
+    epochs          = 10
     
-    print('Fitting model, and plotting REs and LLs')
-    model.fit(epochs)
-    
-    # write something here that analyzes final residuals model.REs
-    
-    # write something here that generates data according to Z, then decode, 
-    # then unstandardize then compare distribution wise to X  
+    simulated_dims = [1,2,3,4,6,12]
+    assumed_dims   = [1,2,3,4,6,12]
+
+    for data_type in ['normal']: #, 't', 'mix']:
+        print(f'data of type {datatype}')
+        
+        for modeltype in ['normal', 't']:
+            counter = 0 # needs 36 times
+            
+            REs25 = np.zeros((len(simulated_dims),len(assumed_dims)))
+            REs50 = np.zeros((len(simulated_dims),len(assumed_dims)))
+            REs75 = np.zeros((len(simulated_dims),len(assumed_dims)))
+            
+            # REs25[:,0] = np.array(simulated_dims)
+            # REs50[:,0] = np.array(simulated_dims)
+            # REs75[:,0] = np.array(simulated_dims)
+            
+            for simdim in range(len(simulated_dims)):
+                data25 = GetData(data_type, simulated_dims[simdim], 0.25)
+                data50 = GetData(data_type, simulated_dims[simdim], 0.50)
+                data75 = GetData(data_type, simulated_dims[simdim], 0.75)
+                
+                for ass_dims in range(len(assumed_dims)):
+                    if modeltype == 'normal':
+                        model25 = GaussVAE(data25, assumed_dims[ass_dims], done=False)
+                        model50 = GaussVAE(data50, assumed_dims[ass_dims], done=False)
+                        model75 = GaussVAE(data75, assumed_dims[ass_dims], done=False)
+                    elif modeltype == 't':
+                        model25 = StudentTVAE(data25, assumed_dims[ass_dims], done=False)
+                        model50 = StudentTVAE(data50, assumed_dims[ass_dims], done=False)
+                        model75 = StudentTVAE(data75, assumed_dims[ass_dims], done=False)
+                    
+                    model25.fit(epochs)
+                    model50.fit(epochs)
+                    model75.fit(epochs)
+                    
+                    REs25[simdim, ass_dims] = model25.REs.mean().detach().numpy()
+                    REs50[simdim, ass_dims] = model50.REs.mean().detach().numpy()
+                    REs75[simdim, ass_dims] = model75.REs.mean().detach().numpy()
+                    counter += 1
+                    print(f'count is {counter}')
+            
+            # print below here
+            REs25 = pd.DataFrame(REs25)
+            REs50 = pd.DataFrame(REs50)
+            REs75 = pd.DataFrame(REs75)
+            
+            REs25.index = simulated_dims
+            REs50.index = simulated_dims
+            REs75.index = simulated_dims
+
+            
+            print('')
+            print(f'model of type {modeltype}')
+            print('')
+
+            print('corr = 0.25: ')
+            print(REs25.style.format(precision=3, escape="latex").to_latex())
+            print('')
+            
+            print('corr = 0.50: ')
+            print(REs50.style.format(precision=3, escape="latex").to_latex())
+            print('')
+            
+            print('corr = 0.75: ')
+            print(REs75.style.format(precision=3, escape="latex").to_latex())
+            print('')
+            
+    time = datetime.datetime.now() - begin_time
+    print(f'time to run was {time}')
+    import win32api
+    win32api.MessageBox(0, 'RE analysis is done :)', 'Done!', 0x00001040)
+
+    return REs75
+
+def GARCH_analysis():
+    raise NotImplementedError()
+
 
 def main():
-    # handle imports 
-    os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
-    delete_existing = False
-    GenerateAllDataSets(delete_existing=True)
-    
-    modeltype       = 'normal' # normal, t, gausmix
-    datatype        = 't' # normal, t, mix, returns, (interest rates)
-    correlated_dims = 3
-    dim_Z           = 3
-    rho             = 0.75
-    epochs          = 1000
-
-    
-    getdata_fitmodel_and_output(modeltype, datatype, correlated_dims, dim_Z, rho, epochs)
-    # then repeat this for 
-
+    RE_analysis()
+            
+            
 if __name__=='__main__':
     main()

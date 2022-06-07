@@ -173,8 +173,12 @@ def GetData(datatype, correlated_dims, rho):
     """
     import numpy as np
     import os
-    dir = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets'
-    n = 10000
+    # dir = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets'
+    # dir = r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS\data\datasets'
+    dir = os.getcwd()+'\\data\\datasets'
+
+
+    n = 5000
     filename = datatype+'_rho='+str(rho)+'_dims='+str(correlated_dims)+'.csv'
     
     if filename in os.listdir(dir):
@@ -232,7 +236,9 @@ def GenerateAllDataSets(delete_existing = False):
         # delete all datasets that are already there
         import numpy as np
         import os
-        dir = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets'
+        # dir = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets'
+        # dir = r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS\data\datasets'
+        dir = os.getcwd()+'\\data\\datasets'
         for file in os.listdir(dir):
             os.remove(os.path.join(dir,file))
         
@@ -246,3 +252,13 @@ def GenerateAllDataSets(delete_existing = False):
             np.savetxt(os.path.join(dir, 'mix_rho='+str(rho)+'.csv'), X_mix, delimiter=',')
 
     return
+
+
+    
+    
+    
+    
+    
+    
+    
+    
