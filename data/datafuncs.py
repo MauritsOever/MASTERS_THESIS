@@ -77,7 +77,7 @@ def GenerateStudentTData(list_of_tuples, n, correlated_dims, rho):
             counter += cols_per_dim
     
     for col in range(array.shape[1]):
-        array[:,col] = t.ppf(array[:,col], df= list_of_tuples[col][2])
+        # array[:,col] = t.ppf(array[:,col], df= list_of_tuples[col][2])
         array[:,col] = array[:,col]*list_of_tuples[col][1] + list_of_tuples[col][0]
     
     return array

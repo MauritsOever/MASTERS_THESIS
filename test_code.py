@@ -10,7 +10,7 @@ import os
 os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
 
 from models.Gauss_VAE import GaussVAE
-#from models.GaussMix_VAE import GaussMixVAE
+from models.GaussMix_VAE import GaussMixVAE
 from models.StudentT_VAE import StudentTVAE
 from models.MGARCH import DCC_garch, robust_garch_torch
 from data.datafuncs import GetData, GenerateAllDataSets
@@ -25,6 +25,7 @@ import statsmodels.api as sm
 # GenerateAllDataSets(delete_existing=True)
 
 dim_Z = 3
+q = 0.05
 # clean and write
 X = pd.read_csv(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets\real_sets\MO_THESIS.03.csv').drop(0, axis=0)
 X = X.ffill()
@@ -35,33 +36,51 @@ X = np.log(X[1:,:]) - np.log(X[:-1,:])
 # X = GetData('normal', 4, 0.75) # normal, t, mix
 
 # model = GaussVAE(X, dim_Z)
-model = GaussVAE(X, dim_Z, layers=3, batch_wise=True, done=True)
+model = GaussMixVAE(X, dim_Z, layers=3, batch_wise=True, done=True)
 
 model.fit(epochs=2500)
 
-model.fit_garch_latent(epochs=50)
-
-VaRs = model.latent_GARCH_HS()
-VaRsNP = VaRs.detach().numpy()
-
-for col in range(VaRs.shape[1]):
-    print(min(VaRsNP[:,col]))
-    #plt.plot(VaRsNP[:,col], alpha=0.3)
-    #plt.show()
-
-# z = model.encoder(model.X).detach().numpy()
-# print(f'means are {z.mean(axis=0)}')
-# print(f'stds are {z.std(axis=0)}')
-# print(f'skews are {stats.skew(z)}')
-# print(f'kurts are {stats.kurtosis(z)}')
-# print('')
-
-
 #%%
-model.fit_garch_latent()
-#%% 
-for mat in model.garch.sigmas:
-    torch.linalg.cholesky(mat)
+VaRs, _ = model.latent_GARCH_HS()
+VaRs = VaRs.detach().numpy()
+# ESsNP = ESs.detach().numpy()
+
+violations_bool = VaRs > X
+violations = np.zeros((violations_bool.shape[0], violations_bool.shape[1]))
+for j in range(violations.shape[1]):
+    for i in range(violations.shape[0]):
+        violations[i,j] = 1 if violations_bool[i,j]==True else 0
+# do statistical testing
+# coverage
+for i in range(violations.shape[1]):
+    print(f'P-value binom test for col {i} = {stats.binomtest(int(sum(violations[:,i])), len(violations[:,i]), p=q).pvalue}')
+    # independence
+    a00s = 0
+    a01s = 0
+    a10s = 0
+    a11s = 0
+    for j in range(1, violations.shape[0]):
+        if violations[j-1, i] == 0:
+            if violations[j,i] == 0:
+                a00s += 1
+            else:
+                a01s += 1
+        else:
+            if violations[j,i] == 0:
+                a10s += 1
+            else:
+                a11s += 1
+    try:            
+        qstar0 = a00s / (a00s + a01s)
+        qstar1 = a10s / (a10s + a11s)
+        qstar = (a00s + a10s) / (a00s+a01s+a10s+a11s)
+        Lambda = (qstar/qstar0)**(a00s) * ((1-qstar)/(1-qstar0))**(a01s) * (qstar/qstar1)**(a10s) * ((1-qstar)/(1-qstar1))**(a11s)
+        
+        print(f'pvalue christoffersens test = {stats.chi2.ppf(-2*np.log(Lambda), df=1)}')
+    except ZeroDivisionError:
+        print('There are no consecutive exceedences, so we can accept independence')
+
+
 #%%
 z = model.encoder(model.X).detach().numpy()
 

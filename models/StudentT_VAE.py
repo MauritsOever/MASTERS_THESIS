@@ -59,7 +59,7 @@ class StudentTVAE(nn.Module):
         self.dim_Z = dim_Z
         self.n     = X.shape[0]
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
-        self.done = done
+        self.done_bool = done
         self.plot = plot
         
         
@@ -341,7 +341,7 @@ class StudentTVAE(nn.Module):
             plt.title('MMs')
             plt.show()
         self.eval() # turn back into performance mode
-        if self.done:
+        if self.done_bool:
             self.done()
         
         return
