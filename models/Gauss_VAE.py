@@ -357,30 +357,30 @@ class GaussVAE(nn.Module):
         return
     
     def fit_garch_latent(self, epochs=None):
-        # from models.MGARCH import robust_garch_torch
+        from models.MGARCH import robust_garch_torch
 
-        # data = self.encoder(self.X) # latent data from fitted autoencoder
+        data = self.encoder(self.X) # latent data from fitted autoencoder
 
-        # garch = robust_garch_torch(data, dist='norm')
-        # if epochs == None:
-        #     epochs = 100
+        garch = robust_garch_torch(data, dist='norm')
+        if epochs == None:
+            epochs = 100
         
-        # garch.fit(epochs)
-        # garch.store_sigmas()
-        # self.garch = garch
-        
-        from models.MGARCH import DCC_garch
-        data = self.encoder(self.X).detach().numpy()
-        
-        garch = DCC_garch(dist='norm')
-        garch.fit(data)
-        garch.predict()
-        garch.sigmas = []
-        garch.sigmas = torch.Tensor(garch.H_t)
-        
-        garch.sigmas[0] = garch.sigmas[1]
-        
+        garch.fit(epochs)
+        garch.store_sigmas()
         self.garch = garch
+        
+        # from models.MGARCH import DCC_garch
+        # data = self.encoder(self.X).detach().numpy()
+        
+        # garch = DCC_garch(dist='norm')
+        # garch.fit(data)
+        # garch.predict()
+        # garch.sigmas = []
+        # garch.sigmas = torch.Tensor(garch.H_t)
+        
+        # garch.sigmas[0] = garch.sigmas[1]
+        
+        # self.garch = garch
         return
     
     def latent_GARCH_HS(self, data = None, q=0.05):

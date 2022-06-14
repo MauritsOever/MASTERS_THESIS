@@ -7,7 +7,8 @@ Created on Mon Apr 25 17:14:17 2022
 @author: MauritsvandenOeverPr
 """
 import os
-os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
+# os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
+os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
 
 from models.Gauss_VAE import GaussVAE
 from models.GaussMix_VAE import GaussMixVAE
@@ -20,25 +21,22 @@ import pandas as pd
 import mpmath
 import matplotlib.pyplot as plt
 from scipy import stats
-import statsmodels.api as sm
+
+X = GetData('returns')
 
 # GenerateAllDataSets(delete_existing=True)
 
 dim_Z = 3
 q = 0.05
 # clean and write
-X = pd.read_csv(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets\real_sets\MO_THESIS.03.csv').drop(0, axis=0)
-X = X.ffill()
-X = X.backfill()
-X = np.array(X.iloc[:,1:])
-X = X.astype(float)
-X = np.log(X[1:,:]) - np.log(X[:-1,:])
-# X = GetData('normal', 4, 0.75) # normal, t, mix
+X = GetData('returns')
 
 # model = GaussVAE(X, dim_Z)
-model = GaussMixVAE(X, dim_Z, layers=3, batch_wise=True, done=True)
+model = GaussVAE(X, dim_Z, layers=3, batch_wise=True, done=True)
 
 model.fit(epochs=2500)
+model.fit_garch_latent(epochs=100)
+VaRs = model.latent_GARCH_HS()
 
 #%%
 VaRs, _ = model.latent_GARCH_HS()
