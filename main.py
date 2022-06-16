@@ -148,8 +148,8 @@ def RE_analysis():
 def GARCH_analysis():
     # begin_time = datetime.datetime.now()
     
-    os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
-    # os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
+    # os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
+    os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
     
     print('load in return data: ')
     X = GetData('returns')
