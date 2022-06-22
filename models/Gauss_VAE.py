@@ -411,7 +411,7 @@ class GaussVAE(nn.Module):
             return
         
         VaRs = torch.empty((len(sigmas), self.dim_X))
-        ESs  = torch.empty((len(sigmas), self.dim_X))
+        # ESs  = torch.empty((len(sigmas), self.dim_X))
         for i in tqdm(range(len(sigmas))):
         # for i in range(len(sigmas)):
             l = torch.linalg.cholesky(sigmas[i])
@@ -424,10 +424,11 @@ class GaussVAE(nn.Module):
             # take quantile
             VaRs[i,:] = torch.quantile(Xsims, q, dim=0)
             # return time series of quantiles
-            for col in range(Xsims.shape[1]):
-                ESs[i, col] = torch.mean(Xsims[Xsims[:,col]<VaRs[i,col],col])
+            # for col in range(Xsims.shape[1]):
+            #     ESs[i, col] = torch.mean(Xsims[Xsims[:,col]<VaRs[i,col],col])
+            del sims
                 
-        return VaRs, ESs
+        return VaRs #, ESs
 
 
             

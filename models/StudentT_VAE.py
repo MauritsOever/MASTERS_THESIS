@@ -351,27 +351,78 @@ class StudentTVAE(nn.Module):
         win32api.MessageBox(0, 'The model is done calibrating :)', 'Done!', 0x00001040) 
         return
     
-    def sim_z(self, covmat):
-        """
-        
+    def fit_garch_latent(self, epochs=None):
+        from models.MGARCH import robust_garch_torch
 
+        data = self.encoder(self.X) # latent data from fitted autoencoder
+
+        garch = robust_garch_torch(data, dist='norm')
+        if epochs == None:
+            epochs = 100
+        
+        garch.fit(epochs)
+        garch.store_sigmas()
+        self.garch = garch
+        
+        # from models.MGARCH import DCC_garch
+        # data = self.encoder(self.X).detach().numpy()
+        
+        # garch = DCC_garch(dist='norm')
+        # garch.fit(data)
+        # garch.predict()
+        # garch.sigmas = []
+        # garch.sigmas = torch.Tensor(garch.H_t)
+        
+        # garch.sigmas[0] = garch.sigmas[1]
+        
+        # self.garch = garch
+        return
+    
+    def latent_GARCH_HS(self, data = None, q=0.05):
+        """
+        Simulate data and take VaR and ES for all days in the data
+        
         Parameters
         ----------
-        covmat : torch tensor covariance matrix, can
+        data : float tensor, np array or pd dataframe of data. if data is passed then analysis is out-of-sample
 
         Returns
         -------
         None.
 
         """
-        n = 10000
-        sigmas = torch.diagonal(covmat)
+        from tqdm import tqdm
+        n = 1000
         
-        sims = torch.distributions.StudentT(self.nu).sample((n,len(sigmas)))
+        try:
+            if data == None:
+                sigmas = self.garch.sigmas
+            else:
+                X = self.standardize_X(self.force_tensor(data))
+                z = self.encoder(X)
+                sigmas = self.garch.estimate_sigmas(z)
+        except:
+            print("Error: garch is not yet fitted")
+            return
         
-        for col in range(len(sigmas)):
-            sims[:,col] = sims[:,col] * sigmas[col]
-        
-        return sims
-    
+        VaRs = torch.empty((len(sigmas), self.dim_X))
+        # ESs  = torch.empty((len(sigmas), self.dim_X))
+        for i in tqdm(range(len(sigmas))):
+        # for i in range(len(sigmas)):
+            l = torch.linalg.cholesky(sigmas[i])
+            sims = torch.randn((n, sigmas[0].shape[0]))
+            for row in range(n):
+                sims[row] = l@sims[row]
+            
+            # put through decoder    
+            Xsims = self.unstandardize_Xprime(self.decoder(sims))
+            # take quantile
+            VaRs[i,:] = torch.quantile(Xsims, q, dim=0)
+            # return time series of quantiles
+            # for col in range(Xsims.shape[1]):
+            #     ESs[i, col] = torch.mean(Xsims[Xsims[:,col]<VaRs[i,col],col])
+            del sims
+                
+        return VaRs #, ESs
+
 # why is this file corrupt?

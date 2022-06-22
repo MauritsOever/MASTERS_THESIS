@@ -1,36 +1,37 @@
 # -*- coding: utf-8 -*-
 """
-THE EFFECT OF DISTRIBUTIONAL ASSUMPTIONS ON AUTOENCODER PERFORMANCE
+APPLICATIONS OF AUTOENCODERS FOR MARKET RISK
 
 Main file that executes the code needed for the analysis of the thesis
-
 
 todo:
     - comment all code for clarity
     - finalize all models - GMM is left
+    - implement different dists
     - code output and some performance analysis
-    - sim, garch, decode, VaR/ES -- sim is done
-    - backtest VaR/ES
 
 @author: MauritsOever
 """
 import os
+os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
+# os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
+
 from models.Gauss_VAE import GaussVAE
 from models.GaussMix_VAE import GaussMixVAE
 from models.StudentT_VAE import StudentTVAE
+from models.MGARCH import DCC_garch, robust_garch_torch
 from data.datafuncs import GetData, GenerateAllDataSets
+import torch
 import numpy as np
 import pandas as pd
-# import datetime
+import mpmath
+import matplotlib.pyplot as plt
 from scipy import stats
-import torch
+from sklearn.decomposition import PCA
 
 def RE_analysis():
     # begin_time = datetime.datetime.now()
     
-    os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
-    # os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
-
     GenerateAllDataSets(delete_existing=False)
     
     epochs          = 2500
@@ -145,70 +146,106 @@ def RE_analysis():
 
     return
 
-def GARCH_analysis():
+def GARCH_analysis(mode, dist):
     # begin_time = datetime.datetime.now()
-    
-    # os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
-    os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
-    
-    print('load in return data: ')
-    X = GetData('returns')
-    
-    print('for normal VAE: ')
-    dim_Z = 3
-    q = 0.05
-    
-    model = GaussVAE(X, dim_Z, layers=3, batch_wise=True, done=True)
-    print('fitting VAE:')
-    model.fit(epochs=2500)
     print('')
-    model.fit_garch_latent(epochs=50)
-
-    VaRs, ESs = model.latent_GARCH_HS(data=None, q=q)
+    print('VAE-GARCH analysis running...')
     
-    violations = (VaRs > torch.Tensor(X)).long()
-    # do statistical testing
+    print(f'Mode = {mode}')
+    print(f'Dist = {dist}')
+    print('')
+    if mode == 'VAE':       
+        print('load in return data: ')
+        X, weights = GetData('returns')
+        
+        print('for normal VAE: ')
+        dim_Z = 3
+        q = 0.05
+        
+        # if dist is normal --> gauss, if dist not normal --> t
+        model = GaussVAE(X, dim_Z, layers=3, batch_wise=True, done=False)
+        print('fitting VAE...')
+        model.fit(epochs=2500)
+        print('')
+        print('fitting GARCH...')
+        model.fit_garch_latent(epochs=50)
+        print('')
+        print('simming...')
+        VaRs = model.latent_GARCH_HS(data=None, q=q)
+        
+        del model
+        
+        portVaRs = np.sum(VaRs.detach().numpy() * weights, axis=1)
+        portRets = np.sum(X * weights, axis=1)
+    
+    elif mode == 'PCA':
+        dim_Z = 3
+        q = 0.05
+
+        # data, PCA fit and compress, then store loadings
+        X, weights = GetData('returns')
+        decomp = PCA(n_components=dim_Z)
+        decomp.fit(X)
+        data_comp = decomp.transform(X)
+
+        # fit garch, and store its sigmas
+        garch = robust_garch_torch(torch.Tensor(data_comp), 'normal') # dist
+        garch.fit(50)
+        garch.store_sigmas()
+        sigmas = []
+        for sigma in garch.sigmas:
+            sigmas += [sigma.detach().numpy()] # 
+            # sigmas += [loading_matrix @ sigma.detach().numpy() @ loading_matrix.T] # project into original space
+        VaRs = np.zeros((len(sigmas), X.shape[1]))
+        for i in range(len(sigmas)):
+        # for i in range(1):
+            l = np.linalg.cholesky(sigmas[i])
+            sims = np.random.normal(loc=0, scale=1, size=(1000, 3)) @ l
+            sims = decomp.inverse_transform(sims)
+            
+            VaRs[i, :] = np.quantile(sims, 0.05, axis=0)
+            
+        portVaRs = np.sum(VaRs * weights, axis=1)
+        portRets = np.sum(X * weights, axis=1)
+        
+    # ESsNP = ESs.detach().numpy()
+    violations = np.array(torch.Tensor(portVaRs > portRets).long())
     # coverage
-    for i in range(violations.shape[1]):
-        print(f'col {i}: ratio, p-value = {sum(violations[:,i])/len(violations[:,i]), stats.binomtest(int(sum(violations[:,i])), len(violations[:,i]), p=q).pvalue}')
+    print(f'ratio of violations = {sum(violations)/len(violations)}')
+    print(f'p-value of binom test = {stats.binom_test(sum(violations), len(violations), p=q)}')
+    a00s = 0
+    a01s = 0
+    a10s = 0
+    a11s = 0
+    for i in range(violations.shape[0]):
         # independence
-        a00s = 0
-        a01s = 0
-        a10s = 0
-        a11s = 0
-        for j in range(1, violations.shape[0]):
-            if violations[j-1, i] == 0:
-                if violations[j,i] == 0:
+            if violations[i-1] == 0:
+                if violations[i] == 0:
                     a00s += 1
                 else:
                     a01s += 1
             else:
-                if violations[j,i] == 0:
+                if violations[i] == 0:
                     a10s += 1
                 else:
                     a11s += 1
-        try:            
-            qstar0 = a00s / (a00s + a01s)
-            qstar1 = a10s / (a10s + a11s)
-            qstar = (a00s + a10s) / (a00s+a01s+a10s+a11s)
-            Lambda = (qstar/qstar0)**(a00s) * ((1-qstar)/(1-qstar0))**(a01s) * (qstar/qstar1)**(a10s) * ((1-qstar)/(1-qstar1))**(a11s)
-            
-            print(f'pvalue christoffersens test = {stats.chi2.ppf(-2*np.log(Lambda), df=1)}')
-        except ZeroDivisionError:
-            print('There are no consecutive exceedences, so we can accept independence')
-        print('')
-        # print output
-    # time = datetime.datetime.now() - begin_time
-    # print(f'time to run was {time}')
-    import win32api
-    win32api.MessageBox(0, 'GARCH analysis is done :)', 'Done!', 0x00001040)
+                    
+    if a11s > 0:            
+        qstar0 = a00s / (a00s + a01s)
+        qstar1 = a10s / (a10s + a11s)
+        qstar = (a00s + a10s) / (a00s+a01s+a10s+a11s)
+        Lambda = (qstar/qstar0)**(a00s) * ((1-qstar)/(1-qstar0))**(a01s) * (qstar/qstar1)**(a10s) * ((1-qstar)/(1-qstar1))**(a11s)
+        
+        print(f'pvalue christoffersens test = {stats.chi2.ppf(-2*np.log(Lambda), df=1)}')
+    else:
+        print('There are no consecutive exceedences, so we can accept independence')
 
-#%%
-
+#%% 
 def main():
+    import warnings
+    warnings.filterwarnings("ignore") # cuz the
     # test = RE_analysis()
-    GARCH_analysis()
+    GARCH_analysis('VAE', 'normal')
     
-            
 if __name__=='__main__':
     main()

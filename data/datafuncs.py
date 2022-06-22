@@ -207,9 +207,12 @@ def GetData(datatype, correlated_dims=3, rho=0.5):
         X = X.ffill()
         X = X.backfill()
         X = np.array(X.iloc[:,1:])
-        X = X.astype(float)
+        X = X.astype(float) # now we have prices, so we need to figure out weights
+        weights = np.empty((X.shape[0], X.shape[1]))
+        for row in range(X.shape[0]):
+            weights[row,:] = X[row,:]/sum(X[row,:])
         X = np.log(X[1:,:]) - np.log(X[:-1,:])
-        return X
+        return (X, weights[1:,:])
     
     elif datatype == 'mix':
         # create check to see if its already generated------------------------------------------------------------------------------------------------
