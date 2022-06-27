@@ -1,3 +1,5 @@
 data/datasets/*.csv
 test_code.py
 !data/datasets/__init__.py
+data/datasets/real_sets/*csv
+!data/datasets/real_sets/masterset_returns.csv

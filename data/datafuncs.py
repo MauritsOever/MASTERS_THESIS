@@ -203,7 +203,7 @@ def GetData(datatype, correlated_dims=3, rho=0.5):
     elif datatype == 'returns':
         # create check to see if its already there   ------------------------------------------------------------------------------------------------
 
-        X = pd.read_csv(os.getcwd()+'\\data\\datasets\\real_sets\\MO_THESIS.03.csv').drop(0, axis=0)
+        X = pd.read_csv(os.getcwd()+'\\data\\datasets\\real_sets\\masterset_returns.csv').drop(0, axis=0)
         X = X.ffill()
         X = X.backfill()
         X = np.array(X.iloc[:,1:])
