@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 from scipy import stats
 
 # GenerateAllDataSets(delete_existing=True)
-dim_Z = 20
+dim_Z = 25
 q = 0.05
 # clean and write
 X, weights = GetData('returns', correlated_dims=2, rho=0.75)
