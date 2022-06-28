@@ -154,13 +154,19 @@ def GARCH_analysis(mode, dist):
     print(f'Mode = {mode}')
     print(f'Dist = {dist}')
     print('')
+    
+    dim_Z = 3
+    q = 0.05
+    
+    
     if mode == 'VAE':       
         print('load in return data: ')
         X, weights = GetData('returns')
         
+        # equally weighted:
+        weights = np.full((X.shape[0], X.shape[1]), 1.0/X.shape[1])
+        
         print('for normal VAE: ')
-        dim_Z = 3
-        q = 0.05
         
         # if dist is normal --> gauss, if dist not normal --> t
         model = GaussVAE(X, dim_Z, layers=3, batch_wise=True, done=False)
@@ -179,8 +185,6 @@ def GARCH_analysis(mode, dist):
         portRets = np.sum(X * weights, axis=1)
     
     elif mode == 'PCA':
-        dim_Z = 3
-        q = 0.05
 
         # data, PCA fit and compress, then store loadings
         X, weights = GetData('returns')
