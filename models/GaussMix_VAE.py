@@ -1,30 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Apr 20 16:04:34 2022
+Own implementation of Student-t VAE
+
+Created on Thu Apr 14 11:29:10 2022
 
 @author: gebruiker
-
-
-https://github.com/mazrk7/gmvae
-https://github.com/jariasf/GMVAE
-https://arxiv.org/pdf/1906.09333.pdf
-https://stats.stackexchange.com/questions/350921/variational-autoencoder-with-gaussian-mixture-model
-https://bzong.github.io/doc/iclr18-dagmm.pdf
-http://lijiaying.github.io/papers/iccv19.pdf
-
-https://paperswithcode.com/paper/deep-unsupervised-clustering-with-gaussian
 """
-
 # imports
 from collections import OrderedDict
 import numpy as np
 import torch
 from torch import nn
 import matplotlib.pyplot as plt
+import mpmath
+
 
 class GaussMixVAE(nn.Module):
     """
-    Inherits from nn.Module to construct a Gaussian Mixture VAE based on given data and 
+    Inherits from nn.Module to construct Gaussian Mixture VAE based on given data and 
     desired dimensions. 
     
     To do:
@@ -66,7 +59,7 @@ class GaussMixVAE(nn.Module):
         self.dim_Z = dim_Z
         self.n     = X.shape[0]
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
-        self.done = done
+        self.done_bool = done
         self.plot = plot
         
         
@@ -348,7 +341,7 @@ class GaussMixVAE(nn.Module):
             plt.title('MMs')
             plt.show()
         self.eval() # turn back into performance mode
-        if self.done:
+        if self.done_bool:
             self.done()
         
         return
@@ -357,3 +350,28 @@ class GaussMixVAE(nn.Module):
         import win32api
         win32api.MessageBox(0, 'The model is done calibrating :)', 'Done!', 0x00001040) 
         return
+    
+    def sim_z(self, covmat):
+        """
+        
+
+        Parameters
+        ----------
+        covmat : torch tensor covariance matrix, can
+
+        Returns
+        -------
+        None.
+
+        """
+        n = 10000
+        sigmas = torch.diagonal(covmat)
+        
+        sims = torch.distributions.StudentT(self.nu).sample((n,len(sigmas)))
+        
+        for col in range(len(sigmas)):
+            sims[:,col] = sims[:,col] * sigmas[col]
+        
+        return sims
+    
+# why is this file corrupt?

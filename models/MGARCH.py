@@ -187,7 +187,6 @@ class robust_garch_torch:
         self.K = data.shape[1]
         # init params
         self.omega = torch.cov(data.T)
-        print(self.omega)
         self.dist = dist  #'normal', 't', 'gaussmix'
         
         paramslist = [0.96]

@@ -8,9 +8,10 @@ Created on Mon Apr 25 17:14:17 2022
 """
 import os
 os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
+# os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
 
 from models.Gauss_VAE import GaussVAE
-#from models.GaussMix_VAE import GaussMixVAE
+from models.GaussMix_VAE import GaussMixVAE
 from models.StudentT_VAE import StudentTVAE
 from models.MGARCH import DCC_garch, robust_garch_torch
 from data.datafuncs import GetData, GenerateAllDataSets
@@ -20,92 +21,118 @@ import pandas as pd
 import mpmath
 import matplotlib.pyplot as plt
 from scipy import stats
-import statsmodels.api as sm
 
 # GenerateAllDataSets(delete_existing=True)
-
-dim_Z = 3
+layerz = 6
+dim_Z = 15
+q = 0.05
+epochs = 5000
 # clean and write
-X = pd.read_csv(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets\real_sets\MO_THESIS.03.csv').drop(0, axis=0)
-X = X.ffill()
-X = X.backfill()
-X = np.array(X.iloc[:,1:])
-X = X.astype(float)
-X = np.log(X[1:,:]) - np.log(X[:-1,:])
-# X = GetData('normal', 4, 0.75) # normal, t, mix
+X, weights = GetData('returns', correlated_dims=2, rho=0.75)
 
+
+RE = 0
 # model = GaussVAE(X, dim_Z)
-model = GaussVAE(X, dim_Z, layers=3, batch_wise=True, done=True)
-
-model.fit(epochs=2500)
-
-model.fit_garch_latent(epochs=50)
-
-VaRs = model.latent_GARCH_HS()
-VaRsNP = VaRs.detach().numpy()
-
-for col in range(VaRs.shape[1]):
-    print(min(VaRsNP[:,col]))
-    #plt.plot(VaRsNP[:,col], alpha=0.3)
-    #plt.show()
-
-# z = model.encoder(model.X).detach().numpy()
-# print(f'means are {z.mean(axis=0)}')
-# print(f'stds are {z.std(axis=0)}')
-# print(f'skews are {stats.skew(z)}')
-# print(f'kurts are {stats.kurtosis(z)}')
-# print('')
-
-
-#%%
-model.fit_garch_latent()
-#%% 
-for mat in model.garch.sigmas:
-    torch.linalg.cholesky(mat)
-#%%
+for i in range(10):
+    print(f'i is {i}')
+    model = GaussVAE(X, dim_Z, layers=layerz, batch_wise=True, done=False)
+    model.fit(epochs=epochs)
+    RE += model.REs.mean().detach().numpy()
+print('\n')
+print(f'dim_z  = {dim_Z}')
+print(f'epochs = {epochs}')
+print(f'layers = {layerz}')
+print(f'RE     = {RE/10}')
 z = model.encoder(model.X).detach().numpy()
 
-print(f'means are {z.mean(axis=0)}')
-print(f'stds are {z.std(axis=0)}')
-print(f'skews are {stats.skew(z)}')
-print(f'kurts are {stats.kurtosis(z)}')
-print('')
+#%% 
+from sklearn.decomposition import PCA
+from models.Gauss_VAE import GaussVAE
+from data.datafuncs import GetData, GenerateAllDataSets
+import numpy as np
+import seaborn as sb
 
-_ = plt.hist(z)
+layerz = 7
+dim_Z = 15
+q = 0.05
+epochs = 5000
 
-# print(f'jb test of col 1 {stats.jarque_bera(z[:,0])}')
-# print(f'jb test of col 2 {stats.jarque_bera(z[:,1])}')
-# print(f'jb test of col 3 {stats.jarque_bera(z[:,2])}')
-# print(f'jb test of col 4 {stats.jarque_bera(z[:,3])}')
+X, weights = GetData('returns')
 
-standard_t = np.random.standard_t(5, size=(10000, 4))
+# define PCs
+decomp = PCA(n_components=X.shape[1])
+decomp.fit(X)
+data_comp = decomp.transform(X)
+data_comp = (data_comp - np.mean(data_comp, axis=0)) / np.std(data_comp, axis=0)
 
-fig = sm.qqplot(z[:,0], stats.t, fit=True, line="45")
+# get z
+model = GaussVAE(X, dim_Z, layers=layerz, batch_wise=True, done=False)
+model.fit(epochs=epochs)
+z = model.encoder(model.X).detach().numpy()
 
-#%% okay now check if Z_extreme == X_extreme
-z_low  = z[z[:,0] < np.quantile(z[:,0], 0.10), :]
-z_high = z[z[:,0] > np.quantile(z[:,0], 0.90), :]
-z_mid  = np.empty((0,4))
-z_extreme = np.empty((0,4))
+# plot/corr
+PCs_Z = np.append(z, data_comp[:, :z.shape[1]], axis=1)
+sb.heatmap(np.corrcoef(PCs_Z, rowvar = False))
+X_Z = np.append(z, X, axis=1)
+sb.heatmap(np.corrcoef(X_Z, rowvar = False))
 
-selector_mid = np.full(z.shape[0], False)
-selector_extreme = np.full(z.shape[0], False)
-for row in range(z.shape[0]):
-    selector_mid[row] = all([z[row,0] > np.quantile(z[:,0], 0.45), z[row,0] < np.quantile(z[:,0], 0.55)])
-    selector_extreme[row] = any([z[row,0] < np.quantile(z[:,0], 0.05), z[row,0] > np.quantile(z[:,0], 0.95)])
+plt.figure(figsize = (15,3))
+plt.plot(range(z.shape[0]), z[:,1], alpha=0.3)
+plt.plot(range(data_comp.shape[0]), data_comp[:,0], alpha=0.3)
+plt.legend(['z', 'pc'])
+plt.show()
 
-z_mid = z[selector_mid, :]
-z_extreme = z[selector_extreme, :]
 
-# okay now do the check
-X_low = model.unstandardize_Xprime(model.decoder(torch.Tensor(z_low))).detach().numpy()
-X_mid = model.unstandardize_Xprime(model.decoder(torch.Tensor(z_mid))).detach().numpy()
-X_high = model.unstandardize_Xprime(model.decoder(torch.Tensor(z_high))).detach().numpy()
-X_extreme = model.unstandardize_Xprime(model.decoder(torch.Tensor(z_extreme))).detach().numpy()
-X_full = model.unstandardize_Xprime(model.decoder(torch.Tensor(z))).detach().numpy()
 
-_ = plt.hist(X_low)
-_ = plt.hist(X_mid)
-_ = plt.hist(X_high)
-_ = plt.hist(X_extreme)
-_ = plt.hist(X_full)
+#%% 
+import os
+os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
+from data.datafuncs import GetData, GenerateAllDataSets
+import numpy as np
+from scipy import stats
+import pandas as pd
+import matplotlib.pyplot as plt
+# data = pd.read_csv(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets\real_sets\masterset_returns.csv').iloc[1:,:]
+data = pd.read_csv(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets\real_sets\FuturesAndatmVola.csv')
+# data['date'] = pd.to_datetime(data['date'])
+data = data.set_index('date')
+
+# data = data[['adjusted close', 'atmVola', 'numOptions', 'futTTM', 'opTTM']]
+
+seriesvola = data['atmVola']
+seriesnums = data['numOptions']
+
+seriesvola = seriesvola[seriesvola.isna()]
+seriesnums = seriesnums[seriesnums==0]
+
+# data = data.ffill()
+# data = data.backfill()
+# data = (np.log(data) - np.log(data.shift(1))).iloc[1:,:]#.iloc[2611:,:]
+
+sumstats = pd.DataFrame(index = ['Mean', 'Min', 'Max', '$ \sigma $', 'Skewness', 'Kurtosis'])
+info     = pd.DataFrame(index = ['Obs', 'NaN count', 'Description'])
+
+def sumarray(y):
+    y = y.dropna()
+    # y = (np.log(y) - np.log(y.shift())).iloc[1:]
+    array = [np.mean(y), min(y), max(y), np.std(y), stats.skew(y, nan_policy = 'omit'), stats.kurtosis(y, nan_policy = 'omit')]
+    return np.array(array)
+
+def infoarray(y):
+    array = [len(y), y.isna().sum(), '']
+    return np.array(array)
+
+for col in data.columns:
+    # sumstats[col] = sumarray(data[col])
+    info[col] = infoarray(data[col])
+    
+sumstats = sumstats.transpose()
+info     = info.transpose()
+
+# print(sumstats.style.format(precision=3, escape='latex').to_latex())
+print(info.style.format(precision=3, escape='latex').to_latex())
+
+# plt.plot(series)
+
+plt.plot(data[data['atmVola'].isna()]['numOptions'])
+plt.plot(data[data['atmVola'].isna() == False]['numOptions'])

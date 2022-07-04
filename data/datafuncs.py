@@ -77,7 +77,7 @@ def GenerateStudentTData(list_of_tuples, n, correlated_dims, rho):
             counter += cols_per_dim
     
     for col in range(array.shape[1]):
-        array[:,col] = t.ppf(array[:,col], df= list_of_tuples[col][2])
+        # array[:,col] = t.ppf(array[:,col], df= list_of_tuples[col][2])
         array[:,col] = array[:,col]*list_of_tuples[col][1] + list_of_tuples[col][0]
     
     return array
@@ -156,7 +156,7 @@ def Yahoo(list_of_ticks, startdate, enddate, retsorclose = 'rets'):
         return dfclose
 
     
-def GetData(datatype, correlated_dims, rho):
+def GetData(datatype, correlated_dims=3, rho=0.5):
     """
     Generates a data array based on input
 
@@ -171,8 +171,10 @@ def GetData(datatype, correlated_dims, rho):
     array of generated or downloaded data
 
     """
+    
     import numpy as np
     import os
+    import pandas as pd
     # dir = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS\data\datasets'
     # dir = r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS\data\datasets'
     dir = os.getcwd()+'\\data\\datasets'
@@ -201,11 +203,18 @@ def GetData(datatype, correlated_dims, rho):
     elif datatype == 'returns':
         # create check to see if its already there   ------------------------------------------------------------------------------------------------
 
-        list_of_ticks = ['NSRGY', 'VWS.CO', 'BCS', 'ING', 'STM', 'DB', 'VWAGY', 
-                         'GMAB.CO', 'BP', 'HM-B.ST', 'SAN', 'MPCK.HA', 'POL.OL', 'TIS.MI']
-        startdate     = '2001-01-01'
-        enddate       = '2021-12-31'
-        return np.array(Yahoo(list_of_ticks, startdate, enddate).iloc[1:, :])
+        X = pd.read_csv(os.getcwd()+'\\data\\datasets\\real_sets\\masterset_returns.csv')#.drop(0, axis=0)
+        X['Name'] = pd.to_datetime(X['Name'], infer_datetime_format=True)
+        X = X[X['Name'] > pd.to_datetime('01/01/2010')]
+        X = X.ffill()
+        X = X.backfill()
+        X = np.array(X.iloc[:,1:])
+        X = X.astype(float) # now we have prices, so we need to figure out weights
+        weights = np.empty((X.shape[0], X.shape[1]))
+        for row in range(X.shape[0]):
+            weights[row,:] = X[row,:]/sum(X[row,:])
+        X = np.log(X[1:,:]) - np.log(X[:-1,:])
+        return (X, weights[1:,:])
     
     elif datatype == 'mix':
         # create check to see if its already generated------------------------------------------------------------------------------------------------
