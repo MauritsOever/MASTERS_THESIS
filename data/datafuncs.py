@@ -203,7 +203,9 @@ def GetData(datatype, correlated_dims=3, rho=0.5):
     elif datatype == 'returns':
         # create check to see if its already there   ------------------------------------------------------------------------------------------------
 
-        X = pd.read_csv(os.getcwd()+'\\data\\datasets\\real_sets\\masterset_returns.csv').drop(0, axis=0)
+        X = pd.read_csv(os.getcwd()+'\\data\\datasets\\real_sets\\masterset_returns.csv')#.drop(0, axis=0)
+        X['Name'] = pd.to_datetime(X['Name'], infer_datetime_format=True)
+        X = X[X['Name'] > pd.to_datetime('01/01/2010')]
         X = X.ffill()
         X = X.backfill()
         X = np.array(X.iloc[:,1:])
