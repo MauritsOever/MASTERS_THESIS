@@ -239,7 +239,7 @@ class GaussVAE(nn.Module):
         # skew_score = torch.linalg.norm(kron3.mean(dim=0), ord=2) # works but subject to sample var
         # kurt_score = torch.mean(vec - 3)
         
-        return mean_score + 10*std_score + skew_score + 20*kurt_score
+        return mean_score + std_score + skew_score + kurt_score
     
     
     def RE_MM_metric(self, epoch):
@@ -254,7 +254,7 @@ class GaussVAE(nn.Module):
         """
         # batch-wise optimisation
         # batch = int(self.X.shape[0]/100)
-        batch = 100
+        batch = 500
         
         epoch_scale_threshold = 0.99
         
@@ -313,7 +313,7 @@ class GaussVAE(nn.Module):
         MMs  = []
         
         optimizer = torch.optim.AdamW(self.parameters(),
-                             lr = 1e-2,
+                             lr = 0.000001,
                              weight_decay = 1e-8) # specify some hyperparams for the optimizer
         
         

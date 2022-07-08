@@ -21,6 +21,7 @@ from models.GaussMix_VAE import GaussMixVAE
 from models.StudentT_VAE import StudentTVAE
 from models.MGARCH import DCC_garch, robust_garch_torch
 from data.datafuncs import GetData, GenerateAllDataSets
+import win32api
 import torch
 import numpy as np
 import pandas as pd
@@ -247,9 +248,10 @@ def GARCH_analysis(mode, dist):
 #%% 
 def main():
     import warnings
-    warnings.filterwarnings("ignore") # cuz the
+    warnings.filterwarnings("ignore") 
     # test = RE_analysis()
     GARCH_analysis('VAE', 'normal')
-    
+    win32api.MessageBox(0, 'GARCH analysis is done :)', 'Done!', 0x00001040)
+
 if __name__=='__main__':
     main()
