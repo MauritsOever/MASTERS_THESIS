@@ -181,13 +181,15 @@ import torch
 
 class robust_garch_torch:
     
-    def __init__(self, data, dist):
+    def __init__(self, data, dist, output=False):
         self.data = self.force_tensor(data)
         self.n = data.shape[0]
         self.K = data.shape[1]
         # init params
         self.omega = torch.cov(data.T)
         self.dist = dist  #'normal', 't', 'gaussmix'
+        
+        self.output = output
         
         paramslist = [0.96]
         for dim in range(self.K):
@@ -234,11 +236,11 @@ class robust_garch_torch:
         from tqdm import tqdm
         
         optimizer = torch.optim.AdamW([self.params],
-                             lr = 1e-2,
+                             lr = 0.01,
                              weight_decay = 1e-8) # specify some hyperparams for the optimizer
 
         
-        logliks = [0]
+        logliks = []
         print(f'fitting MGARCH(1,1) for {epochs} epochs...')
         for epoch in tqdm(range(epochs)):
             loss = self.loglik(self.params)
@@ -246,15 +248,16 @@ class robust_garch_torch:
             optimizer.zero_grad()
             loss.backward(retain_graph=True)
             optimizer.step()
+          
+        if self.output:
+            plt.plot(logliks)
+            plt.show()
+            beta, A = self.construct_params(self.params)
+            print(f'beta = {beta.detach().numpy()}')
+            print('A    = ')
+            print(A.detach().numpy())
             
-        plt.plot(logliks)
-        plt.show()
-        beta, A = self.construct_params(self.params)
-        print(f'beta = {beta.detach().numpy()}')
-        print('A    = ')
-        print(A.detach().numpy())
-        
-        print('storing sigmas...')
+            print('storing sigmas...')
         self.store_sigmas()
         return
     

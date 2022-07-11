@@ -313,8 +313,8 @@ class GaussVAE(nn.Module):
         MMs  = []
         
         optimizer = torch.optim.AdamW(self.parameters(),
-                             lr = 0.000001,
-                             weight_decay = 1e-8) # specify some hyperparams for the optimizer
+                             lr = 0.1,
+                             weight_decay = 1e-3) # specify some hyperparams for the optimizer
         
         
         self.epochs = epochs

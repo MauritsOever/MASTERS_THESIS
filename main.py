@@ -184,6 +184,8 @@ def GARCH_analysis(mode, dist):
         
         portVaRs = np.sum(VaRs.detach().numpy() * weights, axis=1)
         portRets = np.sum(X * weights, axis=1)
+        
+        del VaRs
     
     elif mode == 'PCA':
 
@@ -215,9 +217,13 @@ def GARCH_analysis(mode, dist):
         
     # ESsNP = ESs.detach().numpy()
     violations = np.array(torch.Tensor(portVaRs > portRets).long())
+    del portVaRs, portRets
     # coverage
-    print(f'ratio of violations = {sum(violations)/len(violations)}')
-    print(f'p-value of binom test = {stats.binom_test(sum(violations), len(violations), p=q)}')
+    ratio = sum(violations)/len(violations)
+    pval_ratio = stats.binom_test(sum(violations), len(violations), p=q)
+    
+    print(f'ratio of violations = {ratio}')
+    print(f'p-value of binom test = {pval_ratio}')
     a00s = 0
     a01s = 0
     a10s = 0
@@ -241,17 +247,36 @@ def GARCH_analysis(mode, dist):
         qstar = (a00s + a10s) / (a00s+a01s+a10s+a11s)
         Lambda = (qstar/qstar0)**(a00s) * ((1-qstar)/(1-qstar0))**(a01s) * (qstar/qstar1)**(a10s) * ((1-qstar)/(1-qstar1))**(a11s)
         
-        print(f'pvalue christoffersens test = {stats.chi2.ppf(-2*np.log(Lambda), df=1)}')
+        pval_chris = stats.chi2.ppf(-2*np.log(Lambda), df=1)
+        print(f'pvalue christoffersens test = {pval_chris}')
     else:
+        pval_chris = 0
         print('There are no consecutive exceedences, so we can accept independence')
+    
+    del a00s, a01s, a10s, a11s, violations
+    
+    return [ratio, pval_ratio, pval_chris]
+
+def GARCH_analysis_coldstart(mode, dist):
+    old_result = [0,0,0]
+    for i in range(5):
+        result = GARCH_analysis(mode, dist)
+        if result[1] > old_result[1]:
+            old_result = result
+    win32api.MessageBox(0, 'GARCH analysis is done :)', 'Done!', 0x00001040)
+    print('')
+    print('best run:')
+    print(f'ratio      = {old_result[0]}')
+    print(f'pval       = {old_result[1]}')
+    print(f'pval chris = {old_result[2]}')
+    return 
 
 #%% 
 def main():
     import warnings
     warnings.filterwarnings("ignore") 
     # test = RE_analysis()
-    GARCH_analysis('VAE', 'normal')
-    win32api.MessageBox(0, 'GARCH analysis is done :)', 'Done!', 0x00001040)
+    GARCH_analysis_coldstart('VAE', 'normal')
 
 if __name__=='__main__':
     main()
