@@ -221,8 +221,17 @@ def GetData(datatype, correlated_dims=3, rho=0.5):
         
         return GenerateMixOfData(n,rho)
     
-    elif datatype == 'interestrates':
-        print('This is gonna be a feature, but its not done yet!')
+    elif datatype == 'IV':
+        columns = ['adjusted close', 'atmVola', 'numOptions', 'futTTM', 'opTTM']
+        data = pd.read_csv(os.getcwd()+'\\data\\datasets\\real_sets\\FuturesAndatmVola.csv')
+        data['date'] = pd.to_datetime(data['date'])
+        data = data.sort_values(['date', 'opTTM'])
+        data['atmVola'] = data['atmVola'].interpolate(method='linear')
+        
+        data = data[columns]
+        data.iloc[data['numOptions']<10, 2] = 0
+        
+        return np.array(data)
     else:
         print('datatype not recognized, please consult docstring for information on valid data types')
         

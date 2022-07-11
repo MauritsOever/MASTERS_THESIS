@@ -136,3 +136,27 @@ print(info.style.format(precision=3, escape='latex').to_latex())
 
 plt.plot(data[data['atmVola'].isna()]['numOptions'])
 plt.plot(data[data['atmVola'].isna() == False]['numOptions'])
+
+
+#%%
+import os
+os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
+# os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
+
+from models.Gauss_VAE import GaussVAE
+from models.GaussMix_VAE import GaussMixVAE
+from models.StudentT_VAE import StudentTVAE
+from models.MGARCH import DCC_garch, robust_garch_torch
+from data.datafuncs import GetData, GenerateAllDataSets
+import torch
+import numpy as np
+import pandas as pd
+import mpmath
+import matplotlib.pyplot as plt
+from scipy import stats
+
+X = GetData('IV')
+
+
+
+

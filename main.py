@@ -271,12 +271,16 @@ def GARCH_analysis_coldstart(mode, dist):
     print(f'pval chris = {old_result[2]}')
     return 
 
+def Implied_volatility_analysis():
+    raise NotImplementedError()
+
 #%% 
 def main():
     import warnings
     warnings.filterwarnings("ignore") 
     # test = RE_analysis()
-    GARCH_analysis_coldstart('VAE', 'normal')
-
+    # GARCH_analysis_coldstart('VAE', 'normal')
+    Implied_volatility_analysis()
+    
 if __name__=='__main__':
     main()
