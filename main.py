@@ -217,6 +217,7 @@ def GARCH_analysis(mode, dist):
         
     # ESsNP = ESs.detach().numpy()
     violations = np.array(torch.Tensor(portVaRs > portRets).long())
+    del sigmas
     del portVaRs, portRets
     # coverage
     ratio = sum(violations)/len(violations)
