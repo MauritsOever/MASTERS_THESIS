@@ -222,18 +222,27 @@ def GetData(datatype, correlated_dims=3, rho=0.5):
         return GenerateMixOfData(n,rho)
     
     elif datatype == 'IV':
-        columns = ['atmVola', 'adjusted close', 'numOptions', 'futTTM', 'opTTM']
-        data = pd.read_csv(os.getcwd()+'\\data\\datasets\\real_sets\\FuturesAndatmVola.csv')
-        data['date'] = pd.to_datetime(data['date'])
-        data = data.sort_values(['date', 'opTTM'])
-        
-        # data['numOptions']= np.where(data['atmVola'].isna(),0,data['numOptions'])
-        
-        data['atmVola'] = data['atmVola'].interpolate(method='linear')
-        data = data[columns]
-        data.iloc[data['numOptions']<10, 2] = 0
-        
-        return np.array(data)
+        columns = ['date', 'atmVola', 'adjusted close', 'numOptions', 'futTTM', 'opTTM']
+
+        if 'IV_written.csv' not in os.listdir(os.getcwd()+'\\data\\datasets\\real_sets'):
+            data = pd.read_csv(os.getcwd()+'\\data\\datasets\\real_sets\\FuturesAndatmVola.csv')
+            data['date'] = pd.to_datetime(data['date'])
+            data = data.sort_values(['date', 'opTTM'])
+            
+            data['numOptions']= np.where(data['atmVola'].isna(),0,data['numOptions'])
+            
+            # data['atmVola'] = data['atmVola'].interpolate(method='linear')
+            
+            for date in data['date'].unique():
+                data.loc[data['date']==date, 'atmVola'] = data[data['date']==date]['atmVola'].interpolate(method='linear')
+            
+            data = data[columns]
+            data.iloc[data['numOptions']<10, 2] = 0
+            data.to_csv(os.getcwd()+'\\data\\datasets\\real_sets\\IV_written.csv')
+        else:
+            data = pd.read_csv(os.getcwd()+'\\data\\datasets\\real_sets\\IV_written.csv')
+            
+        return np.array(data[columns[1:]])
     else:
         print('datatype not recognized, please consult docstring for information on valid data types')
         

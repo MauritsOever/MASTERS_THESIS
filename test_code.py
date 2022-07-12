@@ -79,7 +79,9 @@ import mpmath
 import matplotlib.pyplot as plt
 from scipy import stats
 
-date = '2017-06-05'
+X = GetData('IV')
+
+date = '2008-12-17'
 
 columns = ['date', 'atmVola', 'adjusted close', 'numOptions', 'futTTM', 'opTTM']
 data = pd.read_csv(os.getcwd()+'\\data\\datasets\\real_sets\\FuturesAndatmVola.csv')
@@ -91,16 +93,18 @@ old_curve = data[data['date'] == date][columns[1:]]
 curve_to_correct = old_curve.copy()
 curve_to_correct['atmVola'] = curve_to_correct['atmVola'].interpolate(method='linear')
 
-X = GetData('IV')
         
-model = GaussVAE(X, dim_Z=4, layers=3, plot=False, batch_wise=True, standardize=True)
-model.fit(epochs=1000)
-
+model = GaussVAE(X, dim_Z=3, layers=1, plot=False, batch_wise=True, standardize=True)
+model.fit(epochs=2000)
 new_curve = model.forward(np.array(curve_to_correct))
 
-
 # plot
-plt.plot(old_curve['atmVola'])
+plt.plot(np.array(old_curve['atmVola']))
+plt.title(date + ' - original curve')
+plt.ylim([0, 1])
 plt.show()
 plt.plot(new_curve[:,0])
+plt.title(date + ' - corrected curve')
+plt.ylim([0, 1])
 plt.show()
+

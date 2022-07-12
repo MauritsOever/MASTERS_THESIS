@@ -139,11 +139,12 @@ class GaussVAE(nn.Module):
         Standardized version of multidimensional float tensor
 
         """
-        # write code that stores mean and var, so u can unstandardize X_prime
-        self.maxs = torch.max(X, dim=0)[0]
+        try:
+            return X / self.maxs
+        except:
+            self.maxs = torch.max(X, dim=0)[0]
+            return X / self.maxs
         
-        return X / self.maxs
-    
     def unstandardize_Xprime(self, X_prime):
         """
         Using previously stores means and variances, unstandardize the predicted
@@ -242,7 +243,7 @@ class GaussVAE(nn.Module):
         # skew_score = torch.linalg.norm(kron3.mean(dim=0), ord=2) # works but subject to sample var
         # kurt_score = torch.mean(vec - 3)
         
-        return mean_score + std_score + skew_score + kurt_score
+        return mean_score + 10*std_score + skew_score + 10*kurt_score
     
     
     def RE_MM_metric(self, epoch):
@@ -259,7 +260,7 @@ class GaussVAE(nn.Module):
         # batch = int(self.X.shape[0]/100)
         batch = 500
         
-        epoch_scale_threshold = 0.99
+        epoch_scale_threshold = 0.95
         
         if self.X.shape[0] < 1000:
             self.batch_wise = False
@@ -285,7 +286,7 @@ class GaussVAE(nn.Module):
         weights = X[:,2] / max(X[:,2])
         
         self.REs = (X - x_prime)**2
-        RE = (self.REs[:,0] * weights).mean() # mean squared error of reconstruction, 
+        RE = (self.REs[:,0] * weights**4).mean() # mean squared error of reconstruction, 
                                                 # but only of the curves, and weighted with numOptions
         # RE = self.REs[:,0].mean()
         return (RE, MM)
