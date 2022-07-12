@@ -178,7 +178,10 @@ def GARCH_analysis(mode, dist):
         model.fit_garch_latent(epochs=50)
         print('')
         print('simming...')
-        VaRs = model.latent_GARCH_HS(data=None, q=q)
+        try:
+            VaRs = model.latent_GARCH_HS(data=None, q=q)
+        except:
+            return [0,0,0]
         
         del model
         
@@ -211,13 +214,12 @@ def GARCH_analysis(mode, dist):
             sims = decomp.inverse_transform(sims)
             
             VaRs[i, :] = np.quantile(sims, 0.05, axis=0)
-            
+        del sigmas    
         portVaRs = np.sum(VaRs * weights, axis=1)
         portRets = np.sum(X * weights, axis=1)
         
     # ESsNP = ESs.detach().numpy()
     violations = np.array(torch.Tensor(portVaRs > portRets).long())
-    del sigmas
     del portVaRs, portRets
     # coverage
     ratio = sum(violations)/len(violations)
@@ -280,4 +282,4 @@ def main():
     GARCH_analysis_coldstart('VAE', 'normal')
 
 if __name__=='__main__':
-    main()
+     main()
