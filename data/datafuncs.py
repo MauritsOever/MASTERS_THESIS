@@ -222,12 +222,14 @@ def GetData(datatype, correlated_dims=3, rho=0.5):
         return GenerateMixOfData(n,rho)
     
     elif datatype == 'IV':
-        columns = ['adjusted close', 'atmVola', 'numOptions', 'futTTM', 'opTTM']
+        columns = ['atmVola', 'adjusted close', 'numOptions', 'futTTM', 'opTTM']
         data = pd.read_csv(os.getcwd()+'\\data\\datasets\\real_sets\\FuturesAndatmVola.csv')
         data['date'] = pd.to_datetime(data['date'])
         data = data.sort_values(['date', 'opTTM'])
-        data['atmVola'] = data['atmVola'].interpolate(method='linear')
         
+        # data['numOptions']= np.where(data['atmVola'].isna(),0,data['numOptions'])
+        
+        data['atmVola'] = data['atmVola'].interpolate(method='linear')
         data = data[columns]
         data.iloc[data['numOptions']<10, 2] = 0
         

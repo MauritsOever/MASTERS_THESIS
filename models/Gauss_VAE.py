@@ -52,7 +52,7 @@ class GaussVAE(nn.Module):
         else:
             self.X     = self.force_tensor(X)
 
-
+        self.standardize = standardize
         self.dim_X = X.shape[1]
         self.dim_Z = dim_Z
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
@@ -60,7 +60,7 @@ class GaussVAE(nn.Module):
         self.done_bool = done
         self.plot = plot
         
-        self.beta = 10 # setting beta to zero is equivalent to a normal autoencoder
+        self.beta = 0 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
             
         # LeakyReLU for now
@@ -140,9 +140,9 @@ class GaussVAE(nn.Module):
 
         """
         # write code that stores mean and var, so u can unstandardize X_prime
-        self.means_vars_X = (X.mean(axis=0), X.std(axis=0))
+        self.maxs = torch.max(X, dim=0)[0]
         
-        return (X - X.mean(axis=0)) / X.std(axis=0)
+        return X / self.maxs
     
     def unstandardize_Xprime(self, X_prime):
         """
@@ -158,7 +158,7 @@ class GaussVAE(nn.Module):
         Rescaled multidimensional float tensor
 
         """
-        return (X_prime * self.means_vars_X[1] + self.means_vars_X[0])
+        return X_prime * self.maxs
     
     def force_tensor(self, X):
         """
@@ -198,9 +198,12 @@ class GaussVAE(nn.Module):
             print('data does not match instantiation data in feature count')
             return None
         
-        data = self.standardize_X(self.force_tensor(data))
-        
-        return self.unstandardize_Xprime(self.decoder(self.encoder(data))).detach().numpy()
+        if self.standardize:
+            data = self.standardize_X(self.force_tensor(data))
+            return self.unstandardize_Xprime(self.decoder(self.encoder(data))).detach().numpy()
+        else:
+            data = self.force_tensor(data)
+            return self.decoder(self.encoder(data)).detach().numpy()
         
     def MM(self, z):
         # UNIVARIATE SEPARATE 
@@ -279,9 +282,12 @@ class GaussVAE(nn.Module):
         # get negative average log-likelihood here
         MM = self.MM(z)
         
-        self.REs = (X - x_prime)**2
-        RE = self.REs.mean() # mean squared error of reconstruction
+        weights = X[:,2] / max(X[:,2])
         
+        self.REs = (X - x_prime)**2
+        RE = (self.REs[:,0] * weights).mean() # mean squared error of reconstruction, 
+                                                # but only of the curves, and weighted with numOptions
+        # RE = self.REs[:,0].mean()
         return (RE, MM)
 
     
@@ -341,7 +347,7 @@ class GaussVAE(nn.Module):
             plt.title('Reconstruction errors')
             plt.show()
             plt.plot(range(epochs), MMs)
-            plt.title('neg avg MMs')
+            plt.title('avg MMs')
             plt.show()
         self.eval() # turn back into performance mode
         if self.done_bool:
