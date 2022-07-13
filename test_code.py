@@ -81,30 +81,44 @@ from scipy import stats
 
 X = GetData('IV')
 
-date = '2008-12-17'
+dates = ['2008-08-29', '2008-12-16', '2008-12-17', '2012-01-06', '2012-01-17', 
+          '2017-05-24', '2017-06-05', '2018-11-28']
+
+# dates with a LOT of nans
+dates2 = ['2009-11-03', '2009-11-18', '2011-08-12', '2011-09-07', '2011-10-04', '2012-02-14']
+
+dates = dates + dates2
 
 columns = ['date', 'atmVola', 'adjusted close', 'numOptions', 'futTTM', 'opTTM']
 data = pd.read_csv(os.getcwd()+'\\data\\datasets\\real_sets\\FuturesAndatmVola.csv')
 data['date'] = pd.to_datetime(data['date'])
 data = data.sort_values(['date', 'opTTM'])[columns]
 
-old_curve = data[data['date'] == date][columns[1:]]
-
-curve_to_correct = old_curve.copy()
-curve_to_correct['atmVola'] = curve_to_correct['atmVola'].interpolate(method='linear')
-
-        
-model = GaussVAE(X, dim_Z=3, layers=1, plot=False, batch_wise=True, standardize=True)
+model = GaussVAE(X, dim_Z=3, layers=2, plot=False, batch_wise=True, standardize=True)
 model.fit(epochs=2000)
-new_curve = model.forward(np.array(curve_to_correct))
+print('')
+print(f'model REs are {model.REs[:,0].mean()}')
+print('')
 
-# plot
-plt.plot(np.array(old_curve['atmVola']))
-plt.title(date + ' - original curve')
-plt.ylim([0, 1])
-plt.show()
-plt.plot(new_curve[:,0])
-plt.title(date + ' - corrected curve')
-plt.ylim([0, 1])
-plt.show()
+counter = 1
+for date in dates:
+    old_curve = data[data['date'] == date][columns[1:]]
+    
+    curve_to_correct = old_curve.copy()
+    curve_to_correct['atmVola'] = curve_to_correct['atmVola'].interpolate(method='linear')
+    
+    new_curve = model.forward(np.array(curve_to_correct))
+    
+    fig, axs = plt.subplots(1,2, figsize=(15, 5))
+    axs[0].plot(np.array(old_curve['atmVola']))
+    axs[0].set_title(date + ' - original curve')
+    axs[0].set_ylim(bottom=0, top=1)
+    axs[1].plot(new_curve[:,0])
+    axs[1].set_title(date + ' - corrected curve')
+    axs[1].set_ylim(bottom=0, top=1)
+    plt.tight_layout()
+    plt.savefig(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\\Documenten\\THESIS\\present\corrected curve ' + str(counter) +'.png')
+    counter += 1
+    plt.show()
+    
 

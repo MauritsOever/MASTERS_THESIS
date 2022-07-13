@@ -60,7 +60,7 @@ class GaussVAE(nn.Module):
         self.done_bool = done
         self.plot = plot
         
-        self.beta = 0 # setting beta to zero is equivalent to a normal autoencoder
+        self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
             
         # LeakyReLU for now
@@ -243,7 +243,7 @@ class GaussVAE(nn.Module):
         # skew_score = torch.linalg.norm(kron3.mean(dim=0), ord=2) # works but subject to sample var
         # kurt_score = torch.mean(vec - 3)
         
-        return mean_score + 10*std_score + skew_score + 10*kurt_score
+        return mean_score + std_score + skew_score + kurt_score
     
     
     def RE_MM_metric(self, epoch):
@@ -282,11 +282,11 @@ class GaussVAE(nn.Module):
         
         # get negative average log-likelihood here
         MM = self.MM(z)
-        
-        weights = X[:,2] / max(X[:,2])
+
+        weights = (X[:,2] * self.maxs[2])**4 
         
         self.REs = (X - x_prime)**2
-        RE = (self.REs[:,0] * weights**4).mean() # mean squared error of reconstruction, 
+        RE = (self.REs[:,0] * weights).mean() # mean squared error of reconstruction, 
                                                 # but only of the curves, and weighted with numOptions
         # RE = self.REs[:,0].mean()
         return (RE, MM)
@@ -320,8 +320,8 @@ class GaussVAE(nn.Module):
         MMs  = []
         
         optimizer = torch.optim.AdamW(self.parameters(),
-                             lr = 0.1,
-                             weight_decay = 1e-3) # specify some hyperparams for the optimizer
+                             lr = 0.001,
+                             weight_decay = 1e-2) # specify some hyperparams for the optimizer
         
         
         self.epochs = epochs
