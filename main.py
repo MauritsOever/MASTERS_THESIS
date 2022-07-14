@@ -88,6 +88,9 @@ def main():
     warnings.filterwarnings("ignore") 
 
     Implied_volatility_analysis('normal')
+        
+    
+
     
 if __name__=='__main__':
     main()
