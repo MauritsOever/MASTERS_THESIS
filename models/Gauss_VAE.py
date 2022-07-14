@@ -288,6 +288,8 @@ class GaussVAE(nn.Module):
         self.REs = (X - x_prime)**2
         RE = (self.REs[:,0] * weights).mean() # mean squared error of reconstruction, 
                                                 # but only of the curves, and weighted with numOptions
+                                                
+        self.weighted_RE = RE
         # RE = self.REs[:,0].mean()
         return (RE, MM)
 

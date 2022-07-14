@@ -96,9 +96,6 @@ data = data.sort_values(['date', 'opTTM'])[columns]
 
 model = GaussVAE(X, dim_Z=3, layers=2, plot=False, batch_wise=True, standardize=True)
 model.fit(epochs=2000)
-print('')
-print(f'model REs are {model.REs[:,0].mean()}')
-print('')
 
 counter = 1
 for date in dates:
@@ -121,4 +118,6 @@ for date in dates:
     counter += 1
     plt.show()
     
-
+print('')
+print(f'model REs are {model.weighted_RE}')
+print('')
