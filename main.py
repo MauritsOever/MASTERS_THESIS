@@ -33,7 +33,7 @@ def RE_analysis():
     
     GenerateAllDataSets(delete_existing=False)
     
-    epochs          = 100
+    epochs          = 2000
     
     simulated_dims = [1,2,3,4,6,12]
     assumed_dims   = [1,2,3,4,6,12]
