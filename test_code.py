@@ -10,9 +10,7 @@ import os
 os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
 # os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
 
-from models.Gauss_VAE import GaussVAE
-from models.GaussMix_VAE import GaussMixVAE
-from models.StudentT_VAE import StudentTVAE
+from models.VAE import VAE
 from models.MGARCH import DCC_garch, robust_garch_torch
 from data.datafuncs import GetData, GenerateAllDataSets
 import torch
@@ -24,26 +22,49 @@ from scipy import stats
 
 # GenerateAllDataSets(delete_existing=True)
 layerz = 6
-dim_Z = 15
+dim_Z = 5
 q = 0.05
-epochs = 5000
+epochs = 2000
 # clean and write
 X, weights = GetData('returns', correlated_dims=2, rho=0.75)
 
+count = 0
+while count == 0:
+    try:
+        model = VAE(X, dim_Z, layers=3, standardize = True, batch_wise=True, done=False, plot=False, dist='normal')
+        model.fit(epochs)
+        model.fit_garch_latent(epochs=50)
+        
+        portVaRs = model.latent_GARCH_HS().mean(axis=1)
+        portRets = X.mean(axis=1)
+        violations = np.array(torch.Tensor(portVaRs > portRets).long())
+        count += 1
+    except:
+        del model
 
-RE = 0
-# model = GaussVAE(X, dim_Z)
-for i in range(10):
-    print(f'i is {i}')
-    model = GaussVAE(X, dim_Z, layers=layerz, batch_wise=True, done=False)
-    model.fit(epochs=epochs)
-    RE += model.REs.mean().detach().numpy()
-print('\n')
-print(f'dim_z  = {dim_Z}')
-print(f'epochs = {epochs}')
-print(f'layers = {layerz}')
-print(f'RE     = {RE/10}')
-z = model.encoder(model.X).detach().numpy()
+print('')
+print(f'model REs = {model.REs.mean()}')
+print(f'ratio     = {np.sum(violations)/len(violations)}')
+
+#%%
+REs    = [0.025, 0.018, 0.049, 0.083, 0.06, 0.0249, 0.0399, 0.046, 0.0425, 0.008] # portret optim
+ratios = [0.0469, 0.0136, 0.049, 0.076, 0.1106, 0.0108, 0.13, 0.022, 0.0641, 0.007]
+
+plt.scatter(REs, ratios)
+plt.title('portret optim')
+plt.xlabel('REs')
+plt.ylabel('ratio')
+plt.show()
+
+
+REs    = [3.93, 0.5] # indiv ret optim
+ratios = [0.0, 0.0003]
+
+plt.scatter(REs, ratios)
+plt.title('portret optim')
+plt.xlabel('REs')
+plt.ylabel('ratio')
+plt.show()
 
 #%% 
 from sklearn.decomposition import PCA
