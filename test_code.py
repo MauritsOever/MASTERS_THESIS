@@ -28,7 +28,7 @@ epochs = 5000
 # clean and write
 X, weights = GetData('returns', correlated_dims=2, rho=0.75)
 
-model = VAE(X, dim_Z, layers=3, standardize = True, batch_wise=True, done=False, plot=False, dist='normal')
+model = VAE(X, dim_Z, layers=3, standardize = True, batch_wise=True, done=False, plot=False, dist='t')
 model.fit(epochs)
 model.fit_garch_latent(epochs=50)
 
@@ -39,6 +39,7 @@ violations = np.array(torch.Tensor(portVaRs > portRets).long())
 print('')
 print(f'model REs = {model.REs.mean()}')
 print(f'ratio     = {np.sum(violations)/len(violations)}')
+
 
 #%%
 REs    = [0.025, 0.018, 0.049, 0.083, 0.06, 0.0249, 0.0399, 0.046, 0.0425, 0.008] # portret optim

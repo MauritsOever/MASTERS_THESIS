@@ -185,7 +185,9 @@ class robust_garch_torch:
         self.K = data.shape[1]
         # init params
         self.omega = torch.cov(data.T)
-        self.dist = dist  #'normal', 't', 'gaussmix'
+        self.dist = dist  #'normal', 't'
+        if self.dist == 't':
+            self.nu = 6
         
         self.output = output
         
@@ -221,21 +223,43 @@ class robust_garch_torch:
         beta, A = self.construct_params(params)                    
         # calc log likelihood
         sigmat = self.omega
-        loglik = 0
-        for row in range(1, self.n):
-            obs = torch.reshape(self.data[row,:], (self.K, 1))
-            sigmat = (1-beta)*self.omega + A@(obs@obs.T - sigmat)@A.T + beta*sigmat
-            loglik += -0.5*(torch.log(torch.linalg.det(sigmat)) + (obs.T@torch.linalg.inv(sigmat)@obs) 
-                            + self.K*torch.log(torch.Tensor([torch.pi*2])))
-        return (-1*loglik[0])/self.n
+        
+        if self.dist == 'normal':
+            loglik = self.n * self.K*torch.log(torch.Tensor([torch.pi*2]))
+            loglik = torch.reshape(loglik, (1,1))
+            for row in range(1, self.n):
+                obs = torch.reshape(self.data[row,:], (self.K, 1))
+
+                sigmat = (1-beta)*self.omega + A@(obs@obs.T - sigmat)@A.T + beta*sigmat
+                loglik += -0.5*(torch.log(torch.linalg.det(sigmat))) + (obs.T@torch.linalg.inv(sigmat)@obs) 
+
+                                
+        elif self.dist == 't':
+            Gammas_term = torch.Tensor([gamma((self.nu+self.K)/2)/gamma(self.nu/2)])
+            loglik = (-2*torch.log(Gammas_term) + self.K*torch.log(torch.Tensor([torch.pi])) + 
+                      torch.log(torch.Tensor([self.nu-2.])) + (self.K-1)*torch.log(torch.Tensor([self.nu])))*self.n
+            loglik = torch.reshape(loglik, (1,1))
+            for row in range(1, self.n):
+                obs = torch.reshape(self.data[row,:], (self.K, 1))
+                sigmat = (1-beta)*self.omega + A@(obs@obs.T/(1 + obs.T@torch.linalg.inv(sigmat)@obs) - sigmat)@A.T + beta*sigmat
+                loglik += torch.log(torch.linalg.det(sigmat)) + (self.nu + self.K)*torch.log(1 + 1/(self.nu-2) * obs.T@torch.linalg.inv(sigmat)@obs)
+        
+        # print(-1*loglik[0]/self.n)
+        return (-1*loglik)/self.n
     
     def fit(self, epochs):
         import matplotlib.pyplot as plt
         from tqdm import tqdm
         
+        if self.dist == 'normal':
+            learning_rate = 0.015
+        elif self.dist == 't':
+            learning_rate = 0.01
+        
+        
         optimizer = torch.optim.AdamW([self.params],
-                             lr = 0.01,
-                             weight_decay = 1e-8) # specify some hyperparams for the optimizer
+                             lr = learning_rate,
+                             weight_decay = 1e-3) # specify some hyperparams for the optimizer
 
         
         logliks = []
@@ -296,4 +320,5 @@ class robust_garch_torch:
             sigmas += [(1-beta)*sigmas[0] + A@(obs@obs.T - sigmas[row-1])@A.T + beta*sigmas[row-1]]
             
         return sigmas
-    
+
+

@@ -60,6 +60,8 @@ class VAE(nn.Module):
         self.done_bool = done
         self.plot = plot
         self.dist = dist
+        if self.dist == 't':
+            self.nu   = 6 # assumed degrees of freedom for student t
         
         self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
@@ -370,7 +372,7 @@ class VAE(nn.Module):
 
         data = self.encoder(self.X) # latent data from fitted autoencoder
 
-        garch = robust_garch_torch(data, dist='norm')
+        garch = robust_garch_torch(data, dist=self.dist)
         if epochs == None:
             epochs = 100
         
@@ -426,12 +428,16 @@ class VAE(nn.Module):
         # for i in range(len(sigmas)):
             l = torch.linalg.cholesky(sigmas[i])
             if self.dist == 'normal':
-                sims = torch.randn((n, sigmas[0].shape[0]))
+                sims = torch.randn((n, self.dim_Z))
             elif self.dist == 't':
-                # sim student t data instead
-                pass
-            for row in range(n):
-                sims[row] = l@sims[row]
+                from torch.distributions import StudentT
+                m = StudentT(torch.Tensor([self.nu]))
+                sims = m.sample((n, self.dim_Z))[:,:,0]
+                
+            # for row in range(n):
+            #     sims[row] = l@sims[row]
+            
+            sims = sims@l
             
             # put through decoder    
             Xsims = self.unstandardize_Xprime(self.decoder(sims))
