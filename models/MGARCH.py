@@ -70,8 +70,6 @@ class DCC_garch:
                       2*np.log(D_t[i].sum()) + 
                       np.log(np.linalg.det(R_t[i])) + 
                       np.matmul(self.rt[i], (np.matmul( np.linalg.inv(H_t[i]), self.rt[i].T))))
-
-
         return loglike
 
     

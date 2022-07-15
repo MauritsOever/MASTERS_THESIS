@@ -24,23 +24,17 @@ from scipy import stats
 layerz = 6
 dim_Z = 5
 q = 0.05
-epochs = 2000
+epochs = 5000
 # clean and write
 X, weights = GetData('returns', correlated_dims=2, rho=0.75)
 
-count = 0
-while count == 0:
-    try:
-        model = VAE(X, dim_Z, layers=3, standardize = True, batch_wise=True, done=False, plot=False, dist='normal')
-        model.fit(epochs)
-        model.fit_garch_latent(epochs=50)
-        
-        portVaRs = model.latent_GARCH_HS().mean(axis=1)
-        portRets = X.mean(axis=1)
-        violations = np.array(torch.Tensor(portVaRs > portRets).long())
-        count += 1
-    except:
-        del model
+model = VAE(X, dim_Z, layers=3, standardize = True, batch_wise=True, done=False, plot=False, dist='normal')
+model.fit(epochs)
+model.fit_garch_latent(epochs=50)
+
+portVaRs = model.latent_GARCH_HS().mean(axis=1)
+portRets = X.mean(axis=1)
+violations = np.array(torch.Tensor(portVaRs > portRets).long())
 
 print('')
 print(f'model REs = {model.REs.mean()}')
@@ -57,8 +51,8 @@ plt.ylabel('ratio')
 plt.show()
 
 
-REs    = [3.93, 0.5] # indiv ret optim
-ratios = [0.0, 0.0003]
+REs    = [3.93, 0.55, 0.54, 0.51, 0.54, 1.05, 1.026] # indiv ret optim
+ratios = [0.0, 0.0003, 0.001, 0.0003, 0.0003, 0.072, 0.082]
 
 plt.scatter(REs, ratios)
 plt.title('portret optim')
