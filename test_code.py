@@ -22,9 +22,9 @@ from scipy import stats
 
 # GenerateAllDataSets(delete_existing=True)
 layerz = 6
-dim_Z = 5
-q = 0.05
-epochs = 5000
+dim_Z  = 3
+q      = 0.05
+epochs = 1000
 # clean and write
 X, weights = GetData('returns', correlated_dims=2, rho=0.75)
 

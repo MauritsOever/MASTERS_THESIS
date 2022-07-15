@@ -293,8 +293,8 @@ class VAE(nn.Module):
         # self.REs = (X.mean(dim=1) - x_prime.mean(dim=1))**2 # portfolio return RE
         self.REs = (X - x_prime)**2 # individual returns RE
         
-        RE = self.REs.mean() # change to portfolio return error
-        
+        RE = self.REs.mean() 
+
         return (RE, MM)
 
     
@@ -424,11 +424,19 @@ class VAE(nn.Module):
         
         VaRs = torch.empty((len(sigmas), self.dim_X))
         # ESs  = torch.empty((len(sigmas), self.dim_X))
+        count = 0
         for i in tqdm(range(len(sigmas))):
         # for i in range(len(sigmas)):
-            l = torch.linalg.cholesky(sigmas[i])
+            try:
+                l = torch.linalg.cholesky(sigmas[i])
+            except:
+                count += 1
+                sigmas[i] = sigmas[i-1]
+                l = torch.linalg.cholesky(sigmas[i])
+                
             if self.dist == 'normal':
                 sims = torch.randn((n, self.dim_Z))
+                
             elif self.dist == 't':
                 from torch.distributions import StudentT
                 m = StudentT(torch.Tensor([self.nu]))
@@ -447,7 +455,8 @@ class VAE(nn.Module):
             # for col in range(Xsims.shape[1]):
             #     ESs[i, col] = torch.mean(Xsims[Xsims[:,col]<VaRs[i,col],col])
             del sims
-                
+        print('')
+        print(f'amount of non pos def mats = {count / len(sigmas)}')
         return VaRs.detach().numpy() #, ESs
 
 

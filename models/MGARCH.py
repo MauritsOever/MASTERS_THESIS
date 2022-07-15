@@ -245,7 +245,7 @@ class robust_garch_torch:
                 loglik += torch.log(torch.linalg.det(sigmat)) + (self.nu + self.K)*torch.log(1 + 1/(self.nu-2) * obs.T@torch.linalg.inv(sigmat)@obs)
         
         # print(-1*loglik[0]/self.n)
-        return (-1*loglik)/self.n
+        return (-1*loglik[0])/self.n
     
     def fit(self, epochs):
         import matplotlib.pyplot as plt
@@ -284,7 +284,7 @@ class robust_garch_torch:
         return
     
     def construct_params(self, params):
-        params = self.params
+        # params = self.params
         beta = params[0]
         params = params[1:]
         
@@ -294,15 +294,19 @@ class robust_garch_torch:
             A[i, 0:i+1] = params[0:i+1]
             
         # reparam
-        beta = 1/ (1+torch.exp(-beta))
+        beta = 1 / (1+torch.exp(-beta))
         
         for i in range(self.K):
             for j in range(self.K):
                 if i == j:
                     A[i,j] = 1 / (1+torch.exp(-A[i,j]))
-                if i < j:
-                    1/(1/3)*(-1 + 2/(torch.exp(-A[i,j])))
-                    
+                if i > j:
+                    A[i,j] = (1/3)*(-1 + 2/(1 + torch.exp(-A[i,j])))
+        
+        # print(f'beta = {beta.detach().numpy()}')
+        # print('A    = ')
+        # print(A.detach().numpy())
+
         return beta, A
     
     def store_sigmas(self):
@@ -321,4 +325,26 @@ class robust_garch_torch:
             
         return sigmas
 
+#%%
+# import os
+# os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
+
+# from data.datafuncs import GetData, GenerateAllDataSets
+
+# data = GetData('returns')[0][:,5:9]
+# data = torch.Tensor(data)
+# garch = robust_garch_torch(data, 't', output=True)
+
+# garch.fit(epochs=50)
+# garch.store_sigmas()
+
+# count = 0
+# for i in range(len(garch.sigmas)):
+#     try:
+#         torch.linalg.cholesky(garch.sigmas[i])
+#     except:
+#         print(f'WE FOUND HIM, ITS NUMBER {i}')
+#         count += 1
+
+# print(f'ratio of non p-def matrices in sigmas = {count / len(garch.sigmas)}')
 

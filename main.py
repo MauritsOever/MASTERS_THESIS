@@ -16,9 +16,7 @@ import os
 os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
 # os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
 
-from models.Gauss_VAE import GaussVAE
-from models.GaussMix_VAE import GaussMixVAE
-from models.StudentT_VAE import StudentTVAE
+from models.VAE import VAE
 from models.MGARCH import DCC_garch, robust_garch_torch
 from data.datafuncs import GetData, GenerateAllDataSets
 import win32api
@@ -53,9 +51,10 @@ def GARCH_analysis(mode, dist):
         print('for normal VAE: ')
         
         # if dist is normal --> gauss, if dist not normal --> t
-        model = GaussVAE(X, dim_Z, layers=3, batch_wise=True, done=False)
-        print('fitting VAE...')
-        model.fit(epochs=2500)
+        print('cold starting VAEs, and taking best model: ')
+        model = GARCH_analysis_coldstart('VAE', 't')
+        # print('fitting VAE...')
+        # model.fit(epochs=2500)
         print('')
         print('fitting GARCH...')
         model.fit_garch_latent(epochs=50)
@@ -68,7 +67,7 @@ def GARCH_analysis(mode, dist):
         
         del model
         
-        portVaRs = np.sum(VaRs.detach().numpy() * weights, axis=1)
+        portVaRs = np.sum(VaRs * weights, axis=1)
         portRets = np.sum(X * weights, axis=1)
         
         del VaRs
@@ -144,25 +143,41 @@ def GARCH_analysis(mode, dist):
     return [ratio, pval_ratio, pval_chris]
 
 def GARCH_analysis_coldstart(mode, dist):
-    old_result = [0,0,0]
-    for i in range(5):
-        result = GARCH_analysis(mode, dist)
-        if result[1] > old_result[1]:
-            old_result = result
-    win32api.MessageBox(0, 'GARCH analysis is done :)', 'Done!', 0x00001040)
+    # old_result = [0,0,0]
+    # for i in range(5):
+    #     result = GARCH_analysis(mode, dist)
+    #     if result[1] > old_result[1]:
+    #         old_result = result
+    # win32api.MessageBox(0, 'GARCH analysis is done :)', 'Done!', 0x00001040)
+    # print('')
+    # print('best run:')
+    # print(f'ratio      = {old_result[0]}')
+    # print(f'pval       = {old_result[1]}')
+    # print(f'pval chris = {old_result[2]}')
+    
+    X,_ = GetData('returns')
+    modeldict = {}
+    for i in range(20):
+        model = VAE(X, dim_Z=3, layers=2, plot=False, batch_wise=True, standardize=True, dist=dist)
+        model.fit(epochs=2000)
+        modeldict[str(i)] = model
+        del model
+    
+    best_model = modeldict['0']
+    for key in list(modeldict.keys())[1:]:
+        if modeldict[key].REs.mean() < best_model.REs.mean():
+            best_model = modeldict[key]
+            
     print('')
-    print('best run:')
-    print(f'ratio      = {old_result[0]}')
-    print(f'pval       = {old_result[1]}')
-    print(f'pval chris = {old_result[2]}')
-    return 
+    print(f'best model has a RE of {best_model.REs.mean()}')
+    return best_model     
 
 #%% 
 def main():
     import warnings
     warnings.filterwarnings("ignore") 
     # test = RE_analysis()
-    GARCH_analysis_coldstart('VAE', 'normal')
+    GARCH_analysis('VAE', 'normal')
 
 if __name__=='__main__':
      main()
