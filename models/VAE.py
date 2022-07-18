@@ -52,7 +52,9 @@ class VAE(nn.Module):
         else:
             self.X     = self.force_tensor(X)
 
-
+        
+        self.multivariate = True
+        
         self.dim_X = X.shape[1]
         self.dim_Z = dim_Z
         self.dim_Y = int((self.dim_X + self.dim_Z) / 2)
@@ -63,7 +65,7 @@ class VAE(nn.Module):
         if self.dist == 't':
             self.nu   = 6 # assumed degrees of freedom for student t
         
-        self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
+        self.beta = 10 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
             
         # LeakyReLU for now
@@ -206,51 +208,52 @@ class VAE(nn.Module):
         return self.unstandardize_Xprime(self.decoder(self.encoder(data))).detach().numpy()
         
     def MM(self, z):
-        # UNIVARIATE SEPARATE 
-        # UNIVARIATE SEPARATE 
-        if self.dist == 'normal':
-            std_target  = torch.Tensor([1]*self.dim_Z)
-            kurt_target = torch.Tensor([3]*self.dim_Z)
-            
-        elif self.dist == 't':
-            std_target =  std_target = torch.Tensor([(1/ np.sqrt((self.nu-2)/self.nu))]*self.dim_Z)
-            kurt_target = torch.Tensor([6/(self.nu-4)]*self.dim_Z)
-        
-        means = z.mean(dim=0)
-        diffs = z - means
-        std = z.std(dim=0)
-        zscores = diffs / std
-        skews = (torch.pow(zscores, 3.0)).mean(dim=0)
-        kurts = torch.pow(zscores, 4.0).mean(dim=0)
-        
-        mean_score = (means**2).mean()
-        std_score = ((std - std_target)**2).mean()
-        skew_score = (skews**2).mean()
-        kurt_score = ((kurts - kurt_target)**2).mean()
-    
+        if self.multivariate:
         # MULTIVARIATE
-        # cov_z = torch.cov(z.T)
+            cov_z = torch.cov(z.T)
+            
+            # first moment, expected value of all variables
+            mean_score = torch.linalg.norm(z.mean(dim=0), ord=2)
+            
+            # second moment
+            std_score = torch.linalg.norm(cov_z - torch.eye(z.shape[1]), ord=2)
+            
+            # third and fourth moment
+            Y = torch.t(torch.linalg.inv(torch.linalg.cholesky(cov_z))@torch.t(z - z.mean(dim=0)))
+            
+            kron3 = torch.empty((Y.shape[0], Y.shape[1]**3))
+            vec   = torch.empty(Y.shape[0])
+            
+            for row in range(Y.shape[0]):
+                kron3[row,:] = torch.kron(Y[row,:], torch.kron(Y[row,], Y[row,:]))
+                vec[row]     = Y[row,:]@torch.t(Y[row,:])
+            
+            skew_score = torch.linalg.norm(kron3.mean(dim=0), ord=2) # works but subject to sample var
+            kurt_score = torch.mean(vec - 3)
+        else:
+            #UNIVARIATE SEPARATE 
+            if self.dist == 'normal':
+                std_target  = torch.Tensor([1]*self.dim_Z)
+                kurt_target = torch.Tensor([3]*self.dim_Z)
+                
+            elif self.dist == 't':
+                std_target =  std_target = torch.Tensor([(1/ np.sqrt((self.nu-2)/self.nu))]*self.dim_Z)
+                kurt_target = torch.Tensor([6/(self.nu-4)]*self.dim_Z)
+            
+            means = z.mean(dim=0)
+            diffs = z - means
+            std = z.std(dim=0)
+            zscores = diffs / std
+            skews = (torch.pow(zscores, 3.0)).mean(dim=0)
+            kurts = torch.pow(zscores, 4.0).mean(dim=0)
+            
+            mean_score = (means**2).mean()
+            std_score = ((std - std_target)**2).mean()
+            skew_score = (skews**2).mean()
+            kurt_score = ((kurts - kurt_target)**2).mean()
         
-        # # first moment, expected value of all variables
-        # mean_score = torch.linalg.norm(z.mean(dim=0), ord=2)
         
-        # # second moment
-        # std_score = torch.linalg.norm(cov_z - torch.eye(z.shape[1]), ord=2)
-        
-        # # third and fourth moment
-        # Y = torch.t(torch.linalg.inv(torch.linalg.cholesky(cov_z))@torch.t(z - z.mean(dim=0)))
-        
-        # kron3 = torch.empty((Y.shape[0], Y.shape[1]**3))
-        # vec   = torch.empty(Y.shape[0])
-        
-        # for row in range(Y.shape[0]):
-        #     kron3[row,:] = torch.kron(Y[row,:], torch.kron(Y[row,], Y[row,:]))
-        #     vec[row]     = Y[row,:]@torch.t(Y[row,:])
-        
-        # skew_score = torch.linalg.norm(kron3.mean(dim=0), ord=2) # works but subject to sample var
-        # kurt_score = torch.mean(vec - 3)
-        
-        return mean_score + std_score + skew_score + kurt_score
+        return mean_score + 10*std_score + skew_score + 10*kurt_score
     
     
     def RE_MM_metric(self, epoch):
@@ -265,7 +268,10 @@ class VAE(nn.Module):
         """
         # batch-wise optimisation
         # batch = int(self.X.shape[0]/100)
-        batch = 500
+        if self.multivariate:
+            batch = 100
+        else:
+            batch = 500
         
         epoch_scale_threshold = 0.99
         
