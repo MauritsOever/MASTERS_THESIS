@@ -11,7 +11,6 @@ os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHu
 # os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
 
 from models.VAE import VAE
-from models.MGARCH import DCC_garch, robust_garch_torch
 from data.datafuncs import GetData, GenerateAllDataSets
 import torch
 import numpy as np
@@ -24,13 +23,13 @@ from scipy import stats
 layerz = 6
 dim_Z  = 3
 q      = 0.05
-epochs = 1000
+epochs = 2000
 # clean and write
 X, weights = GetData('returns', correlated_dims=2, rho=0.75)
 
 model = VAE(X, dim_Z, layers=3, standardize = True, batch_wise=True, done=False, plot=False, dist='t')
 model.fit(epochs)
-model.fit_garch_latent(epochs=50)
+model.fit_garch_latent()
 
 portVaRs = model.latent_GARCH_HS().mean(axis=1)
 portRets = X.mean(axis=1)

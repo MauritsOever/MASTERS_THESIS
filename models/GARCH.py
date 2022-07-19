@@ -176,8 +176,9 @@ from scipy.optimize import minimize
 import numpy as np
 from scipy.special import gamma
 import torch
+from arch import arch_model
 
-class robust_garch_torch:
+class robust_multivariate_garch_torch:
     
     def __init__(self, data, dist, output=False):
         self.data = self.force_tensor(data)
@@ -325,26 +326,42 @@ class robust_garch_torch:
             
         return sigmas
 
+
+class univariate_garch:
+    def __init__(self, data, dist):
+        self.data        = data
+        (self.n, self.K) = data.shape
+        
+        self.dist = dist
+    
+    def calibrate(self):
+        scaling = 100
+        sigmas = np.zeros((self.n, self.K))
+        
+        for col in range(self.K):
+            series = self.data[:,col].copy(order='C')
+            
+            
+            garch = arch_model(series*scaling, mean='zero', vol='GARCH', dist=self.dist)
+            garch = garch.fit(disp=False)
+            # print(f'estimated nu = {garch.params.nu}')
+            sigmas[:,col] = garch.conditional_volatility/scaling
+        
+        return sigmas
 #%%
 # import os
 # os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
 
 # from data.datafuncs import GetData, GenerateAllDataSets
+# import matplotlib.pyplot as plt
 
-# data = GetData('returns')[0][:,5:9]
-# data = torch.Tensor(data)
-# garch = robust_garch_torch(data, 't', output=True)
+# data = GetData('returns')[0][:,5]#:9]
 
-# garch.fit(epochs=50)
-# garch.store_sigmas()
+# # garch = univariate_garch(data, 't')
+# # garch.calibrate()
 
-# count = 0
-# for i in range(len(garch.sigmas)):
-#     try:
-#         torch.linalg.cholesky(garch.sigmas[i])
-#     except:
-#         print(f'WE FOUND HIM, ITS NUMBER {i}')
-#         count += 1
-
-# print(f'ratio of non p-def matrices in sigmas = {count / len(garch.sigmas)}')
-
+# garch = arch_model(data*100, mean='zero', vol='GARCH', dist='t')
+# garch = garch.fit()
+# plt.plot(garch.conditional_volatility/100)
+# plt.plot([data.std()]*len(data))
+# plt.plot([garch.conditional_volatility.mean()/100]*len(data))

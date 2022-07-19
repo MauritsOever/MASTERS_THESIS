@@ -54,6 +54,7 @@ class VAE(nn.Module):
 
         
         self.multivariate = True
+        self.standardize  = standardize
         
         self.dim_X = X.shape[1]
         self.dim_Z = dim_Z
@@ -67,7 +68,7 @@ class VAE(nn.Module):
         
         self.beta = 10 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
-            
+                   
         # LeakyReLU for now
         self.encoder = self.construct_encoder(layers)
         self.decoder = self.construct_decoder(layers)
@@ -147,7 +148,7 @@ class VAE(nn.Module):
         # write code that stores mean and var, so u can unstandardize X_prime
         self.means_vars_X = (X.mean(axis=0), X.std(axis=0))
         
-        return (X - X.mean(axis=0)) / X.std(axis=0)
+        return (X - self.means_vars_X[0]) / self.means_vars_X[1]
     
     def unstandardize_Xprime(self, X_prime):
         """
@@ -163,7 +164,7 @@ class VAE(nn.Module):
         Rescaled multidimensional float tensor
 
         """
-        return (X_prime * self.means_vars_X[1] + self.means_vars_X[0])
+        return (X_prime * self.means_vars_X[1]**2 + self.means_vars_X[0])
     
     def force_tensor(self, X):
         """
@@ -210,26 +211,31 @@ class VAE(nn.Module):
     def MM(self, z):
         if self.multivariate:
         # MULTIVARIATE
+            if self.dist == 'normal':
+                std_target = 1.0
+                kurt_target = 3.0
+            elif self.dist == 't':
+                std_target = 1.0 / np.sqrt((self.nu-2)/self.nu)
+                kurt_target = 6.0/(self.nu-4)
+            
             cov_z = torch.cov(z.T)
             
             # first moment, expected value of all variables
             mean_score = torch.linalg.norm(z.mean(dim=0), ord=2)
             
             # second moment
-            std_score = torch.linalg.norm(cov_z - torch.eye(z.shape[1]), ord=2)
+            std_score = torch.linalg.norm(cov_z - torch.eye(z.shape[1])*std_target, ord=2)
             
             # third and fourth moment
-            Y = torch.t(torch.linalg.inv(torch.linalg.cholesky(cov_z))@torch.t(z - z.mean(dim=0)))
+            diffs = z - z.mean(dim=0)
+            zscores = diffs / diffs.std(dim=0)
             
-            kron3 = torch.empty((Y.shape[0], Y.shape[1]**3))
-            vec   = torch.empty(Y.shape[0])
+            skews = torch.mean(torch.pow(zscores, 3.0), dim=0)
+            kurts = torch.mean(torch.pow(zscores, 4.0), dim=0) - kurt_target
             
-            for row in range(Y.shape[0]):
-                kron3[row,:] = torch.kron(Y[row,:], torch.kron(Y[row,], Y[row,:]))
-                vec[row]     = Y[row,:]@torch.t(Y[row,:])
+            skew_score = torch.linalg.norm(skews, ord=2) # works but subject to sample var
+            kurt_score = torch.mean(kurts - kurt_target)
             
-            skew_score = torch.linalg.norm(kron3.mean(dim=0), ord=2) # works but subject to sample var
-            kurt_score = torch.mean(vec - 3)
         else:
             #UNIVARIATE SEPARATE 
             if self.dist == 'normal':
@@ -253,7 +259,7 @@ class VAE(nn.Module):
             kurt_score = ((kurts - kurt_target)**2).mean()
         
         
-        return mean_score + 10*std_score + skew_score + 10*kurt_score
+        return mean_score + std_score + skew_score + kurt_score
     
     
     def RE_MM_metric(self, epoch):
@@ -373,32 +379,27 @@ class VAE(nn.Module):
         win32api.MessageBox(0, 'The model is done calibrating :)', 'Done!', 0x00001040)
         return
     
-    def fit_garch_latent(self, epochs=None):
-        from models.MGARCH import robust_garch_torch
+    def fit_garch_latent(self):
+        # from models.GARCH import robust_garch_torch
 
-        data = self.encoder(self.X) # latent data from fitted autoencoder
+        # data = self.encoder(self.X) # latent data from fitted autoencoder
 
-        garch = robust_garch_torch(data, dist=self.dist)
-        if epochs == None:
-            epochs = 100
+        # garch = robust_garch_torch(data, dist=self.dist)
+        # if epochs == None:
+        #     epochs = 100
         
-        garch.fit(epochs)
-        garch.store_sigmas()
-        self.garch = garch
+        # garch.fit(epochs)
+        # garch.store_sigmas()
+        # self.garch = garch
+        # del garch
+        
+        from models.GARCH import univariate_garch
+        
+        z = self.encoder(self.X).detach().numpy().astype(np.double)
+        garch = univariate_garch(z, self.dist)
+        self.sigmas = garch.calibrate()
         del garch
         
-        # from models.MGARCH import DCC_garch
-        # data = self.encoder(self.X).detach().numpy()
-        
-        # garch = DCC_garch(dist='norm')
-        # garch.fit(data)
-        # garch.predict()
-        # garch.sigmas = []
-        # garch.sigmas = torch.Tensor(garch.H_t)
-        
-        # garch.sigmas[0] = garch.sigmas[1]
-        
-        # self.garch = garch
         return
     
     def latent_GARCH_HS(self, data = None, q=0.05):
@@ -417,29 +418,10 @@ class VAE(nn.Module):
         from tqdm import tqdm
         n = 1000
         
-        try:
-            if data == None:
-                sigmas = self.garch.sigmas
-            else:
-                X = self.standardize_X(self.force_tensor(data))
-                z = self.encoder(X)
-                sigmas = self.garch.estimate_sigmas(z)
-        except:
-            print("Error: garch is not yet fitted")
-            return
-        
-        VaRs = torch.empty((len(sigmas), self.dim_X))
-        # ESs  = torch.empty((len(sigmas), self.dim_X))
-        count = 0
-        for i in tqdm(range(len(sigmas))):
-        # for i in range(len(sigmas)):
-            try:
-                l = torch.linalg.cholesky(sigmas[i])
-            except:
-                count += 1
-                sigmas[i] = sigmas[i-1]
-                l = torch.linalg.cholesky(sigmas[i])
-                
+        VaRs = torch.empty((len(self.sigmas), self.dim_X))
+
+        for i in tqdm(range(len(self.sigmas))):
+            sigmas = torch.Tensor(self.sigmas[i,:])
             if self.dist == 'normal':
                 sims = torch.randn((n, self.dim_Z))
                 
@@ -448,21 +430,23 @@ class VAE(nn.Module):
                 m = StudentT(torch.Tensor([self.nu]))
                 sims = m.sample((n, self.dim_Z))[:,:,0]
                 
-            # for row in range(n):
-            #     sims[row] = l@sims[row]
             
-            sims = sims@l
+            sims = (sims * self.sigmas[i]).float()
+            # sim_quantile = torch.quantile(sims, q, dim=0)
+            
             
             # put through decoder    
-            Xsims = self.unstandardize_Xprime(self.decoder(sims))
-            # take quantile
+            if self.standardize:
+                Xsims = self.unstandardize_Xprime(self.decoder(sims))
+            else:
+                Xsims = self.decoder(sims)
+
             VaRs[i,:] = torch.quantile(Xsims, q, dim=0)
             # return time series of quantiles
             # for col in range(Xsims.shape[1]):
             #     ESs[i, col] = torch.mean(Xsims[Xsims[:,col]<VaRs[i,col],col])
             del sims
-        print('')
-        print(f'amount of non pos def mats = {count / len(sigmas)}')
+            
         return VaRs.detach().numpy() #, ESs
 
 

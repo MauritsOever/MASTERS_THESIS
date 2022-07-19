@@ -17,7 +17,6 @@ os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHu
 # os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
 
 from models.VAE import VAE
-from models.MGARCH import DCC_garch, robust_garch_torch
 from data.datafuncs import GetData, GenerateAllDataSets
 import win32api
 import torch
@@ -37,7 +36,7 @@ def GARCH_analysis(mode, dist, dim_Z):
     print(f'Dist = {dist}')
     print('')
     
-    dim_Z = 3
+    dim_Z
     q = 0.05
     
     
@@ -51,18 +50,16 @@ def GARCH_analysis(mode, dist, dim_Z):
         print('for normal VAE: ')
         
         # if dist is normal --> gauss, if dist not normal --> t
-        model = VAE(X, dim_Z, layers=5, plot=False, batch_wise=True, standardize=True, dist=dist)
+        model = VAE(X, dim_Z, layers=2, plot=False, batch_wise=True, standardize=False, dist=dist)
         print('fitting VAE...')
-        model.fit(epochs=2000)
+        model.fit(epochs=10000)
         print('')
         print('fitting GARCH...')
-        model.fit_garch_latent(epochs=50)
+        model.fit_garch_latent()
         print('')
         print('simming...')
-        try:
-            VaRs = model.latent_GARCH_HS(data=None, q=q)
-        except:
-            return [0,0,0]
+        VaRs = model.latent_GARCH_HS(data=None, q=q)
+
         
         del model
         
@@ -80,7 +77,7 @@ def GARCH_analysis(mode, dist, dim_Z):
         data_comp = decomp.transform(X)
 
         # fit garch, and store its sigmas
-        garch = robust_garch_torch(torch.Tensor(data_comp), dist) # dist
+        garch = 1 # robust_garch_torch(torch.Tensor(data_comp), dist) # dist
         garch.fit(50)
         garch.store_sigmas()
             # sigmas += [loading_matrix @ sigma.detach().numpy() @ loading_matrix.T] # project into original space
@@ -102,7 +99,12 @@ def GARCH_analysis(mode, dist, dim_Z):
     else:
         print(f'mode {mode} is not a valid mode')
         return [0,0,0]
-        
+
+    plt.plot(portRets)
+    plt.plot(portVaRs)
+
+    plt.show()
+    
     # ESsNP = ESs.detach().numpy()
     violations = np.array(torch.Tensor(portVaRs > portRets).long())
     del portVaRs, portRets
@@ -129,7 +131,7 @@ def GARCH_analysis(mode, dist, dim_Z):
                 else:
                     a11s += 1
                     
-    if a11s > 0:            
+    if a11s > 0 and a00s > 0:            
         qstar0 = a00s / (a00s + a01s)
         qstar1 = a10s / (a10s + a11s)
         qstar = (a00s + a10s) / (a00s+a01s+a10s+a11s)
@@ -186,7 +188,7 @@ def main():
     import warnings
     warnings.filterwarnings("ignore") 
     # test = RE_analysis()
-    GARCH_analysis_coldstart('VAE', 'normal', amount_of_runs=10, dim_Z=6)
+    GARCH_analysis_coldstart('VAE', 't', amount_of_runs=20, dim_Z=15)
 
 if __name__=='__main__':
      main()
