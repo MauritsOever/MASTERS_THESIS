@@ -38,7 +38,7 @@ def RE_analysis():
     simulated_dims = [1,2,3,4,6,12]
     assumed_dims   = [1,2,3,4,6,12]
 
-    for data_type in ['normal']: #'normal', 't', 'mix', 'returns']:
+    for data_type in ['t']: #'normal', 't', 'mix', 'returns']:
         print(f'data of type {data_type}')
         
         if data_type == 'returns':
@@ -60,9 +60,13 @@ def RE_analysis():
                 
             REdf = pd.DataFrame(REs)
             REdf.index = ['Gaussian', 'Student t']
-            print(REdf.style.format().to_latex())
+            
+            write_dir = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\THESIS\present\RE tables'
+            files      = write_dir + '\RE_returns.txt'
+            print(files)
+            with open(files, 'w') as f:
+                    print(REdf.style.format().to_latex(), file=f)
         else:
-        
             for modeltype in ['normal', 't']:
                 counter = 0 # needs 36 times
                 
@@ -78,19 +82,32 @@ def RE_analysis():
                     data25 = GetData(data_type, simulated_dims[simdim], 0.25)
                     data50 = GetData(data_type, simulated_dims[simdim], 0.50)
                     data75 = GetData(data_type, simulated_dims[simdim], 0.75)
+
                     
                     for ass_dims in range(len(assumed_dims)):
-                        model25 = VAE(data25, assumed_dims[ass_dims], done=False, dist=modeltype)
-                        model50 = VAE(data50, assumed_dims[ass_dims], done=False, dist=modeltype)
-                        model75 = VAE(data75, assumed_dims[ass_dims], done=False, dist=modeltype)
+                        subrun_count = 10
+                                            
+                        err25 = 0
+                        err50 = 0
+                        err75 = 0
                         
-                        model25.fit(epochs)
-                        model50.fit(epochs)
-                        model75.fit(epochs)
-                        
-                        err25 = np.round(model25.REs.mean().detach().numpy(), 3)
-                        err50 = np.round(model50.REs.mean().detach().numpy(), 3)
-                        err75 = np.round(model75.REs.mean().detach().numpy(), 3)
+                        for i in range(subrun_count):
+                            print(f'subrun {i+1} out of {subrun_count}')
+                            model25 = VAE(data25, assumed_dims[ass_dims], done=False, dist=modeltype)
+                            model50 = VAE(data50, assumed_dims[ass_dims], done=False, dist=modeltype)
+                            model75 = VAE(data75, assumed_dims[ass_dims], done=False, dist=modeltype)
+                            
+                            model25.fit(epochs)
+                            model50.fit(epochs)
+                            model75.fit(epochs)
+                            
+                            err25 += model25.REs.mean().detach().numpy()
+                            err50 += model50.REs.mean().detach().numpy()
+                            err75 += model75.REs.mean().detach().numpy()
+                            
+                        err25 = np.round(err25/subrun_count, 3)
+                        err50 = np.round(err50/subrun_count, 3)
+                        err75 = np.round(err75/subrun_count, 3)
                         
                         REs25[simdim, ass_dims] = '\\cellcolor{blue!' + str(err25*85) + '}' + str(err25)
                         REs50[simdim, ass_dims] = '\\cellcolor{blue!' + str(err50*85) + '}' + str(err50)
@@ -106,23 +123,26 @@ def RE_analysis():
                 REs25.index = simulated_dims
                 REs50.index = simulated_dims
                 REs75.index = simulated_dims
-    
                 
-                print('')
-                print(f'model of type {modeltype}')
-                print('')
-    
-                print('corr = 0.25: ')
-                print(REs25.style.format().to_latex())
-                print('')
-                
-                print('corr = 0.50: ')
-                print(REs50.style.format().to_latex())
-                print('')
-                
-                print('corr = 0.75: ')
-                print(REs75.style.format().to_latex())
-                print('')
+                write_dir = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\THESIS\present\RE tables'
+                files      = write_dir + '\RE_' + data_type + '_' + modeltype + '.txt'
+                print(files)
+                with open(files, 'w') as f:
+                    print('', file=f)
+                    print(f'model of type {modeltype}', file=f)
+                    print('', file=f)
+        
+                    print('corr = 0.25: ', file=f)
+                    print(REs25.style.format().to_latex(), file=f)
+                    print('', file=f)
+                    
+                    print('corr = 0.50: ', file=f)
+                    print(REs50.style.format().to_latex(), file=f)
+                    print('', file=f)
+                    
+                    print('corr = 0.75: ', file=f)
+                    print(REs75.style.format().to_latex(), file=f)
+                    print('', file=f)
             
     # time = datetime.datetime.now() - begin_time
     # print(f'time to run was {time}')

@@ -221,8 +221,6 @@ def GetData(datatype, correlated_dims=3, rho=0.5):
         
         return GenerateMixOfData(n,rho)
     
-    elif datatype == 'interestrates':
-        print('This is gonna be a feature, but its not done yet!')
     else:
         print('datatype not recognized, please consult docstring for information on valid data types')
         
