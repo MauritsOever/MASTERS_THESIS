@@ -196,8 +196,8 @@ def GetData(datatype, correlated_dims=3, rho=0.5):
     elif datatype == 't':
         # create check to see if its already generated------------------------------------------------------------------------------------------------
         
-        list_of_tuples = [(0,1,4), (-0.5,0.01,4), (6,12,5), (80,10,3), (-10,6,6), (100,85,4.5),
-                          (25, 5,5), (36, 6, 6), (2, 1, 8), (73, 30, 5), (-10,2.5,10), (-20, 4, 4.44)]
+        list_of_tuples = [(0,1,5), (-0.5,0.01,5), (6,12,5), (80,10,5), (-10,6,6), (100,85,5),
+                          (25, 5,5), (36, 6, 5), (2, 1, 5), (73, 30, 5), (-10,2.5,5), (-20, 4, 5)]
         return GenerateStudentTData(list_of_tuples, n, correlated_dims, rho)
     
     elif datatype == 'returns':

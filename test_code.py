@@ -10,9 +10,8 @@ import os
 os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
 # os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
 
-from models.Gauss_VAE import GaussVAE
-from models.GaussMix_VAE import GaussMixVAE
-from models.StudentT_VAE import StudentTVAE
+from models.VAE import VAE
+
 from models.MGARCH import DCC_garch, robust_garch_torch
 from data.datafuncs import GetData, GenerateAllDataSets
 import torch
@@ -22,66 +21,33 @@ import mpmath
 import matplotlib.pyplot as plt
 from scipy import stats
 
-# GenerateAllDataSets(delete_existing=True)
-layerz = 6
-dim_Z = 15
-q = 0.05
-epochs = 5000
-# clean and write
-X, weights = GetData('returns', correlated_dims=2, rho=0.75)
-
-
-RE = 0
-# model = GaussVAE(X, dim_Z)
-for i in range(10):
-    print(f'i is {i}')
-    model = GaussVAE(X, dim_Z, layers=layerz, batch_wise=True, done=False)
-    model.fit(epochs=epochs)
-    RE += model.REs.mean().detach().numpy()
-print('\n')
-print(f'dim_z  = {dim_Z}')
-print(f'epochs = {epochs}')
-print(f'layers = {layerz}')
-print(f'RE     = {RE/10}')
-z = model.encoder(model.X).detach().numpy()
-
-#%% 
 from sklearn.decomposition import PCA
-from models.Gauss_VAE import GaussVAE
-from data.datafuncs import GetData, GenerateAllDataSets
-import numpy as np
-import seaborn as sb
 
-layerz = 7
-dim_Z = 15
-q = 0.05
-epochs = 5000
+X = GetData('t', correlated_dims=1, rho=0.5)
 
-X, weights = GetData('returns')
+dim_Z  = 12
+epochs = 2500
+amount_of_runs = 1
 
-# define PCs
-decomp = PCA(n_components=X.shape[1])
-decomp.fit(X)
-data_comp = decomp.transform(X)
-data_comp = (data_comp - np.mean(data_comp, axis=0)) / np.std(data_comp, axis=0)
+RE1 = 0
+RE2 = 0
 
-# get z
-model = GaussVAE(X, dim_Z, layers=layerz, batch_wise=True, done=False)
-model.fit(epochs=epochs)
-z = model.encoder(model.X).detach().numpy()
+for i in range(amount_of_runs):
+    print(f'run {i+1} out of {amount_of_runs}')
+    
+    model1 = VAE(X, dim_Z=dim_Z, layers=3, dist='normal')
+    model2 = VAE(X, dim_Z=dim_Z, layers=3, dist='t')
+    
+    model1.fit(epochs)
+    model2.fit(epochs)
+    
+    RE1 += model1.REs.detach().numpy().mean()
+    RE2 += model2.REs.detach().numpy().mean()
+    print('')
 
-# plot/corr
-PCs_Z = np.append(z, data_comp[:, :z.shape[1]], axis=1)
-sb.heatmap(np.corrcoef(PCs_Z, rowvar = False))
-X_Z = np.append(z, X, axis=1)
-sb.heatmap(np.corrcoef(X_Z, rowvar = False))
-
-plt.figure(figsize = (15,3))
-plt.plot(range(z.shape[0]), z[:,1], alpha=0.3)
-plt.plot(range(data_comp.shape[0]), data_comp[:,0], alpha=0.3)
-plt.legend(['z', 'pc'])
-plt.show()
-
+print('')
+print(f'model gaussian = {RE1/10}')
+print(f'model t        = {RE2/10}')
 
 
 #%% 

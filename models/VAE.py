@@ -64,9 +64,9 @@ class VAE(nn.Module):
         self.dist = dist
         
         if dist == 't':
-            self.nu = 5.0
+            self.nu = 6.0
         
-        self.beta = 5 # setting beta to zero is equivalent to a normal autoencoder
+        self.beta = 1.0 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
             
         # Tanh for now
@@ -215,8 +215,8 @@ class VAE(nn.Module):
                 std_target = 1.0
                 kurt_target = 3.0
             elif self.dist == 't':
-                std_target = 1.0 #/ np.sqrt((self.nu-2)/self.nu)
-                kurt_target = 6.0 # /(self.nu-4)
+                std_target = 1.0 # / np.sqrt((self.nu-2)/self.nu)
+                kurt_target = 6.0 /(self.nu-4)
             
             cov_z = torch.cov(z.T)
             
@@ -259,7 +259,8 @@ class VAE(nn.Module):
             kurt_score = ((kurts - kurt_target)**2).mean()
         
         
-        return (1/22)*mean_score + (10/22)*std_score + (1/22)*skew_score + (10/22)*kurt_score        
+        # return (1/22)*mean_score + (10/22)*std_score + (1/22)*skew_score + (10/22)*kurt_score        
+        return mean_score + std_score + skew_score + kurt_score
     
     
     def RE_MM_metric(self, epoch):
@@ -297,7 +298,10 @@ class VAE(nn.Module):
         MM = self.MM(z)
         
         self.REs = (X - x_prime)**2
+        # self.REs = (self.unstandardize_Xprime(X) - self.unstandardize_Xprime(x_prime))**2
+        
         RE = self.REs.mean() # mean squared error of reconstruction
+        
         
         return (RE, MM)
 
@@ -331,7 +335,7 @@ class VAE(nn.Module):
         
         optimizer = torch.optim.AdamW(self.parameters(),
                              lr = 0.01,
-                             weight_decay = 1e-3) # specify some hyperparams for the optimizer
+                             weight_decay = 0.0) # specify some hyperparams for the optimizer
         
         
         self.epochs = epochs
@@ -339,8 +343,8 @@ class VAE(nn.Module):
         REs = np.zeros(epochs)
         MMs = np.zeros(epochs)
         
-        # for epoch in tqdm(range(epochs)):
-        for epoch in range(epochs):
+        for epoch in tqdm(range(epochs)):
+        # for epoch in range(epochs):
             RE_MM = self.RE_MM_metric(epoch) # store RE and KL in tuple
             loss = self.loss_function(RE_MM) # calculate loss function based on tuple
             
