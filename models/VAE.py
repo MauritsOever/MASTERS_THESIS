@@ -64,12 +64,12 @@ class VAE(nn.Module):
         self.dist = dist
         
         if dist == 't':
-            self.nu = 6.0
+            self.nu = 5.0
         
-        self.beta = 1 # setting beta to zero is equivalent to a normal autoencoder
+        self.beta = 5 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
             
-        # LeakyReLU for now
+        # Tanh for now
         self.encoder = self.construct_encoder(layers)
         self.decoder = self.construct_decoder(layers)
         
@@ -90,12 +90,12 @@ class VAE(nn.Module):
         """
         network = OrderedDict()
         network['0'] = nn.Linear(self.dim_X, self.dim_Y)
-        network['1'] = nn.LeakyReLU() 
+        network['1'] = nn.Tanh() 
         
         count = 2
         for i in range(layers-2):
             network[str(count)]   = nn.Linear(self.dim_Y, self.dim_Y)
-            network[str(count+1)] = nn.LeakyReLU()
+            network[str(count+1)] = nn.Tanh()
             count += 2
         
         network[str(count)] = nn.Linear(self.dim_Y, self.dim_Z)
@@ -119,12 +119,12 @@ class VAE(nn.Module):
         """
         network = OrderedDict()
         network['0'] = nn.Linear(self.dim_Z, self.dim_Y)
-        network['1'] = nn.LeakyReLU()
+        network['1'] = nn.Tanh()
         
         count = 2
         for i in range(layers-2):
             network[str(count)]   = nn.Linear(self.dim_Y, self.dim_Y)
-            network[str(count+1)] = nn.LeakyReLU()
+            network[str(count+1)] = nn.Tanh()
             count += 2
         
         network[str(count)] = nn.Linear(self.dim_Y, self.dim_X)
@@ -215,8 +215,8 @@ class VAE(nn.Module):
                 std_target = 1.0
                 kurt_target = 3.0
             elif self.dist == 't':
-                std_target = 1.0 / np.sqrt((self.nu-2)/self.nu)
-                kurt_target = 6.0/(self.nu-4)
+                std_target = 1.0 #/ np.sqrt((self.nu-2)/self.nu)
+                kurt_target = 6.0 # /(self.nu-4)
             
             cov_z = torch.cov(z.T)
             
@@ -243,8 +243,8 @@ class VAE(nn.Module):
                 kurt_target = torch.Tensor([3]*self.dim_Z)
                 
             elif self.dist == 't':
-                std_target =  std_target = torch.Tensor([(1/ np.sqrt((self.nu-2)/self.nu))]*self.dim_Z)
-                kurt_target = torch.Tensor([6/(self.nu-4)]*self.dim_Z)
+                std_target =  std_target = torch.Tensor([1.]*self.dim_Z) # (1/ np.sqrt((self.nu-2)/self.nu))
+                kurt_target = torch.Tensor([6.]*self.dim_Z) # 6/(self.nu-4)
             
             means = z.mean(dim=0)
             diffs = z - means
@@ -259,7 +259,7 @@ class VAE(nn.Module):
             kurt_score = ((kurts - kurt_target)**2).mean()
         
         
-        return mean_score + 10*std_score + skew_score + 10*kurt_score        
+        return (1/22)*mean_score + (10/22)*std_score + (1/22)*skew_score + (10/22)*kurt_score        
     
     
     def RE_MM_metric(self, epoch):

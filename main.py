@@ -27,6 +27,7 @@ import mpmath
 import matplotlib.pyplot as plt
 from scipy import stats
 from sklearn.decomposition import PCA
+import subprocess
 
 def RE_analysis():
     # begin_time = datetime.datetime.now()
@@ -38,22 +39,32 @@ def RE_analysis():
     simulated_dims = [1,2,3,4,6,12]
     assumed_dims   = [1,2,3,4,6,12]
 
-    for data_type in ['t']: #'normal', 't', 'mix', 'returns']:
+    for data_type in ['returns']: #'normal', 't', 'mix', 'returns']:
         print(f'data of type {data_type}')
         
         if data_type == 'returns':
-            assumed_dims = [1,2,3,4,6]
+            assumed_dims = [5,10,15,20,25]
             X, _ = GetData(data_type)
-            REs = np.full((3, len(assumed_dims)), 'f'*40)
+            REs = np.full((2, len(assumed_dims)), 'f'*40)
             for ass_dim in range(len(assumed_dims)):
-                modelgauss = VAE(X, assumed_dims[ass_dim], dist='normal')
-                modelt     = VAE(X, assumed_dims[ass_dim], dist='t')
+                errgaus = 0
+                errt    = 0
+                subruns = 1
+                print(f'assumed dim {ass_dim+1} out of {len(assumed_dims)}')
+                for i in range(subruns):
+                    print(f'subrun {i+1} out of {subruns}')
+                    
+                    modelgauss = VAE(X, assumed_dims[ass_dim], dist='normal')
+                    modelt     = VAE(X, assumed_dims[ass_dim], dist='t')
                 
-                modelgauss.fit(epochs)
-                modelt.fit(epochs)
+                    modelgauss.fit(epochs)
+                    modelt.fit(epochs)
                 
-                errgaus = np.round(modelgauss.REs.mean().detach().numpy(), 3)
-                errt = np.round(modelt.REs.mean().detach().numpy(), 3)
+                    errgaus += np.round(modelgauss.REs.mean().detach().numpy(), 3)
+                    errt += np.round(modelt.REs.mean().detach().numpy(), 3)
+                
+                errgaus = errgaus / subruns
+                errt    = errt / subruns
                 
                 REs[0, ass_dim] = '\\cellcolor{blue!' + str(errgaus*85) + '}' + str(errgaus)
                 REs[1, ass_dim] = '\\cellcolor{blue!' + str(errt*85) + '}' + str(errt)
@@ -66,8 +77,9 @@ def RE_analysis():
             print(files)
             with open(files, 'w') as f:
                     print(REdf.style.format().to_latex(), file=f)
+                    
         else:
-            for modeltype in ['normal', 't']:
+            for modeltype in ['t']: #, 't']:
                 counter = 0 # needs 36 times
                 
                 REs25 = np.full((len(simulated_dims),len(assumed_dims)), 'f'*40)
@@ -85,7 +97,7 @@ def RE_analysis():
 
                     
                     for ass_dims in range(len(assumed_dims)):
-                        subrun_count = 10
+                        subrun_count = 1
                                             
                         err25 = 0
                         err50 = 0
@@ -148,6 +160,8 @@ def RE_analysis():
     # print(f'time to run was {time}')
     import win32api
     win32api.MessageBox(0, 'RE analysis is done :)', 'Done!', 0x00001040)
+    subprocess.Popen('explorer '+write_dir)            
+
 
     return
 
