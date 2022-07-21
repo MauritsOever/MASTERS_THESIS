@@ -37,7 +37,7 @@ def GARCH_analysis(mode, dist, dim_Z):
     print('')
     
     dim_Z
-    q = 0.05
+    q = 0.10
     
     
     if mode == 'VAE':       
@@ -50,7 +50,7 @@ def GARCH_analysis(mode, dist, dim_Z):
         print('for normal VAE: ')
         
         # if dist is normal --> gauss, if dist not normal --> t
-        model = VAE(X, dim_Z, layers=2, plot=False, batch_wise=True, standardize=False, dist=dist)
+        model = VAE(X, dim_Z, layers=2, plot=False, batch_wise=True, standardize=True, dist=dist)
         print('fitting VAE...')
         model.fit(epochs=10000)
         print('')

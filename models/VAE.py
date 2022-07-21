@@ -303,6 +303,7 @@ class VAE(nn.Module):
         MM = self.MM(z)
         
         # self.REs = (X.mean(dim=1) - x_prime.mean(dim=1))**2 # portfolio return RE
+        # self.REs = (self.unstandardize_Xprime(X) - self.unstandardize_Xprime(x_prime))**2
         self.REs = (X - x_prime)**2 # individual returns RE
         
         RE = self.REs.mean() 
