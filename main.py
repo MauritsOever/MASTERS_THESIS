@@ -16,9 +16,7 @@ import os
 os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
 # os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
 
-from models.Gauss_VAE import GaussVAE
-from models.GaussMix_VAE import GaussMixVAE
-from models.StudentT_VAE import StudentTVAE
+from models.VAE import VAE
 from models.MGARCH import DCC_garch, robust_garch_torch
 from data.datafuncs import GetData, GenerateAllDataSets
 import win32api
@@ -37,7 +35,7 @@ def _find_IV_model(amount_of_runs, dist):
     print(f'finding best IV model for {amount_of_runs} runs')
     for i in range(amount_of_runs):
         print(f'subrun {i+1} out of {amount_of_runs}')
-        model = GaussVAE(X, dim_Z=3, layers=2, plot=False, batch_wise=True, standardize=True)
+        model = VAE(X, dim_Z=3, layers=2, plot=False, batch_wise=True, standardize=True, dist=dist )
         model.fit(epochs=2500)
         modeldict[str(i)] = model
         del model
@@ -49,6 +47,14 @@ def _find_IV_model(amount_of_runs, dist):
             
     print('')
     print(f'best model has a weighted RE of {best_model.weighted_RE}')
+    
+    RE_path = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\THESIS\present\curves\model RE '
+    files   = RE_path + dist + '.txt'
+    
+    with open(files, 'w') as f:
+        print(f'best model has a weighted RE of {best_model.weighted_RE}', file=f)
+
+    
     return best_model      
     
     
@@ -101,9 +107,10 @@ def Implied_volatility_analysis(amount_of_runs, dist):
         axs[1].set_xlabel('Option time to maturity')
 
         plt.tight_layout()
-        plt.savefig(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\\Documenten\\THESIS\\present\corrected curve ' + str(counter) +'.png')
+        plt.savefig(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\THESIS\present\curves\modeldist '+ dist + ' corrected curve ' + str(counter) +'.png')
         counter += 1
         plt.show()
+        
 
 #%% 
 def main():
