@@ -23,11 +23,12 @@ from scipy import stats
 
 from sklearn.decomposition import PCA
 
-X = GetData('t', correlated_dims=1, rho=0.5)
-
-dim_Z  = 12
+dim_Z           = 12
+correlated_dims = 4
 epochs = 2500
 amount_of_runs = 10
+
+X = GetData('normal', correlated_dims=correlated_dims, rho=0.75)
 
 RE1 = 0
 RE2 = 0
@@ -46,6 +47,7 @@ for i in range(amount_of_runs):
     print('')
     print(f'model gaussian = {RE1/(i+1)}')
     print(f'model t        = {RE2/(i+1)}')
+    print('')
 
 
 print('')

@@ -64,7 +64,7 @@ class VAE(nn.Module):
         self.dist = dist
         
         if dist == 't':
-            self.nu = 6.0
+            self.nu = 5.0
         
         self.beta = 1.0 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
@@ -215,7 +215,7 @@ class VAE(nn.Module):
                 std_target = 1.0
                 kurt_target = 3.0
             elif self.dist == 't':
-                std_target = 1.0 / np.sqrt((self.nu-2)/self.nu)
+                std_target = 1.0 # / np.sqrt((self.nu-2)/self.nu)
                 kurt_target = 6.0 /(self.nu-4)
             
             cov_z = torch.cov(z.T)
@@ -343,8 +343,8 @@ class VAE(nn.Module):
         REs = np.zeros(epochs)
         MMs = np.zeros(epochs)
         
-        for epoch in tqdm(range(epochs)):
-        # for epoch in range(epochs):
+        # for epoch in tqdm(range(epochs)):
+        for epoch in range(epochs):
             RE_MM = self.RE_MM_metric(epoch) # store RE and KL in tuple
             loss = self.loss_function(RE_MM) # calculate loss function based on tuple
             
