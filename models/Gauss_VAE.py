@@ -331,8 +331,8 @@ class GaussVAE(nn.Module):
         REs = np.zeros(epochs)
         MMs = np.zeros(epochs)
         
-        for epoch in tqdm(range(epochs)):
-        # for epoch in range(epochs):
+        # for epoch in tqdm(range(epochs)):
+        for epoch in range(epochs):
             RE_MM = self.RE_MM_metric(epoch) # store RE and KL in tuple
             loss = self.loss_function(RE_MM) # calculate loss function based on tuple
             
