@@ -53,7 +53,7 @@ class VAE(nn.Module):
             self.X     = self.force_tensor(X)
         
         
-        self.multivariate = False
+        self.multivariate = True
 
         self.dim_X = X.shape[1]
         self.dim_Z = dim_Z
@@ -215,7 +215,7 @@ class VAE(nn.Module):
                 std_target = 1.0
                 kurt_target = 3.0
             elif self.dist == 't':
-                std_target = 1.0 # / np.sqrt((self.nu-2)/self.nu)
+                std_target = 1.0 / np.sqrt((self.nu-2)/self.nu)
                 kurt_target = 6.0 /(self.nu-4)
             
             cov_z = torch.cov(z.T)
@@ -243,8 +243,8 @@ class VAE(nn.Module):
                 kurt_target = torch.Tensor([3]*self.dim_Z)
                 
             elif self.dist == 't':
-                std_target =  std_target = torch.Tensor([1.]*self.dim_Z) # (1/ np.sqrt((self.nu-2)/self.nu))
-                kurt_target = torch.Tensor([6.]*self.dim_Z) # 6/(self.nu-4)
+                std_target = torch.Tensor([(1 / np.sqrt((self.nu-2)/self.nu))]*self.dim_Z) # 
+                kurt_target = torch.Tensor([6/(self.nu-4)]*self.dim_Z) 
             
             means = z.mean(dim=0)
             diffs = z - means

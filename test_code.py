@@ -27,7 +27,7 @@ X = GetData('t', correlated_dims=1, rho=0.5)
 
 dim_Z  = 12
 epochs = 2500
-amount_of_runs = 1
+amount_of_runs = 10
 
 RE1 = 0
 RE2 = 0
@@ -35,8 +35,8 @@ RE2 = 0
 for i in range(amount_of_runs):
     print(f'run {i+1} out of {amount_of_runs}')
     
-    model1 = VAE(X, dim_Z=dim_Z, layers=3, dist='normal')
-    model2 = VAE(X, dim_Z=dim_Z, layers=3, dist='t')
+    model1 = VAE(X, dim_Z=dim_Z, layers=2, dist='normal')
+    model2 = VAE(X, dim_Z=dim_Z, layers=2, dist='t')
     
     model1.fit(epochs)
     model2.fit(epochs)
@@ -44,10 +44,14 @@ for i in range(amount_of_runs):
     RE1 += model1.REs.detach().numpy().mean()
     RE2 += model2.REs.detach().numpy().mean()
     print('')
+    print(f'model gaussian = {RE1/(i+1)}')
+    print(f'model t        = {RE2/(i+1)}')
+
 
 print('')
-print(f'model gaussian = {RE1/10}')
-print(f'model t        = {RE2/10}')
+print('TOTAL:')
+print(f'model gaussian = {RE1/amount_of_runs}')
+print(f'model t        = {RE2/amount_of_runs}')
 
 
 #%% 
