@@ -92,9 +92,9 @@ def Implied_volatility_analysis(amount_of_runs, dist):
         new_curve = model.forward(np.array(curve_to_correct))[:,0]
         
         fig, axs = plt.subplots(1,2, figsize=(15, 5))
-        axs[0].plot(np.array(curve1['opTTM']), np.array(curve1['atmVola']), color='orange', alpha=0.5)        
+        axs[0].plot(np.array(curve1['opTTM']), np.array(curve1['atmVola']), color='orange', alpha=0.3)        
         axs[0].plot(np.array(curve2['opTTM']), np.array(curve2['atmVola']), color='cornflowerblue')
-        axs[0].plot(np.array(curve3['opTTM']), np.array(curve3['atmVola']), color='green', alpha=0.5)        
+        axs[0].plot(np.array(curve3['opTTM']), np.array(curve3['atmVola']), color='green', alpha=0.3)        
         axs[0].set_title(date + ' - original curve')
         axs[0].set_ylim(bottom=0, top=1)
         axs[0].legend([f'curve on {date_before}', f'curve on {date}', f'curve on {date_after}'])
