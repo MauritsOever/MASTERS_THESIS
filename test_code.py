@@ -26,7 +26,7 @@ from sklearn.decomposition import PCA
 dim_Z           = 12
 correlated_dims = 4
 epochs = 2500
-amount_of_runs = 10
+amount_of_runs = 1
 
 X = GetData('normal', correlated_dims=correlated_dims, rho=0.75)
 
