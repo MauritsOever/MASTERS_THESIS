@@ -45,12 +45,13 @@ def RE_analysis(data_type, in_sample=True):
     print(f'data of type {data_type}')
     
     if data_type == 'returns':
+        epochs = 10000
         assumed_dims = [1,2,3,4,5]
         X, _ = GetData(data_type)
         REs = np.full((3, len(assumed_dims)), 'f'*40)
         for ass_dim in range(len(assumed_dims)):
-            errgaus = 0
-            errt    = 0
+            errgaus = 100
+            errt    = 100
             subruns = 10
             print(f'assumed dim {ass_dim+1} out of {len(assumed_dims)}')
             for i in range(subruns):
@@ -61,12 +62,15 @@ def RE_analysis(data_type, in_sample=True):
             
                 modelgauss.fit(epochs)
                 modelt.fit(epochs)
-            
-                errgaus += np.round(modelgauss.REs.mean().detach().numpy(), 3)
-                errt += np.round(modelt.REs.mean().detach().numpy(), 3)
                 
-            errgaus = errgaus / subruns
-            errt    = errt / subruns
+                if np.round(modelgauss.REs.mean().detach().numpy(), 3) < errgaus:
+                    errgaus = np.round(modelgauss.REs.mean().detach().numpy(), 3)
+                
+                if np.round(modelt.REs.mean().detach().numpy(), 3) < errt:
+                    errt = np.round(modelt.REs.mean().detach().numpy(), 3)
+                
+            errgaus = errgaus #/ subruns
+            errt    = errt #/ subruns
             
             X_standard = (X - X.mean(axis=0))/X.std(axis=0)
             
@@ -112,9 +116,9 @@ def RE_analysis(data_type, in_sample=True):
                     for ass_dims in range(len(assumed_dims)):
                         subrun_count = 10
                                             
-                        err25 = 0
-                        err50 = 0
-                        err75 = 0
+                        err25 = 100
+                        err50 = 100
+                        err75 = 100
                         
                         for i in range(subrun_count):
                             print(f'subrun {i+1} out of {subrun_count}')
@@ -126,13 +130,19 @@ def RE_analysis(data_type, in_sample=True):
                             model50.fit(epochs)
                             model75.fit(epochs)
                             
-                            err25 += model25.REs.mean().detach().numpy()
-                            err50 += model50.REs.mean().detach().numpy()
-                            err75 += model75.REs.mean().detach().numpy()
+                            if model25.REs.mean().detach().numpy() < err25:
+                                err25 = model25.REs.mean().detach().numpy()
+                                
+                            if model50.REs.mean().detach().numpy() < err50:
+                                err50 = model50.REs.mean().detach().numpy()
                             
-                        err25 = np.round(err25/subrun_count, 3)
-                        err50 = np.round(err50/subrun_count, 3)
-                        err75 = np.round(err75/subrun_count, 3)
+                            if model75.REs.mean().detach().numpy() < err75:
+                                err75 = model75.REs.mean().detach().numpy()
+
+                            
+                        err25 = np.round(err25, 3)
+                        err50 = np.round(err50, 3)
+                        err75 = np.round(err75, 3)
                         
                         REs25[simdim, ass_dims] = '\\cellcolor{blue!' + str(err25*85) + '}' + str(err25)
                         REs50[simdim, ass_dims] = '\\cellcolor{blue!' + str(err50*85) + '}' + str(err50)
@@ -182,8 +192,8 @@ def RE_analysis(data_type, in_sample=True):
                 
                 for ass_dim in range(len(assumed_dims)):
                     print(sim_dim, ass_dim)
-                    err_gaus = 0
-                    err_t    = 0
+                    err_gaus = 100
+                    err_t    = 100
                     for i in range(10):
                         # define model w 10th missing, get error on remaining tenth
                         counter += 1
@@ -205,11 +215,14 @@ def RE_analysis(data_type, in_sample=True):
                         gaus_output = modelgaus.decoder(modelgaus.encoder(torch.Tensor(xtest_standard))).detach().numpy()
                         t_output    = modelt.decoder(modelt.encoder(torch.Tensor(xtest_standard))).detach().numpy()
                         
-                        err_gaus += ((gaus_output - xtest_standard)**2).mean()
-                        err_t    += ((t_output - xtest_standard)**2).mean()
+                        if ((gaus_output - xtest_standard)**2).mean() < err_gaus:
+                            err_gaus = ((gaus_output - xtest_standard)**2).mean()
                         
-                    err_gaus = err_gaus / 10
-                    err_t    = err_t / 10
+                        if ((t_output - xtest_standard)**2).mean() < err_t:
+                            err_t = ((t_output - xtest_standard)**2).mean()
+                        
+                    err_gaus = err_gaus
+                    err_t    = err_t 
                     REs_gaus[sim_dim, ass_dim] = '\\cellcolor{blue!' + str(err_gaus*85) + '}' + str(err_gaus)
                     REs_t[sim_dim, ass_dim]    = '\\cellcolor{blue!' + str(err_t*85) + '}' + str(err_t)
                 
