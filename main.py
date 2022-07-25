@@ -248,7 +248,7 @@ def RE_analysis(data_type, in_sample=True):
 def main():
     import warnings
     warnings.filterwarnings("ignore") 
-    RE_analysis('mix', in_sample=False)
+    RE_analysis('returns', in_sample=True)
 
 if __name__=='__main__':
     main()

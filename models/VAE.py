@@ -53,7 +53,7 @@ class VAE(nn.Module):
             self.X     = self.force_tensor(X)
         
         
-        self.multivariate = True
+        self.multivariate = False
 
         self.dim_X = X.shape[1]
         self.dim_Z = dim_Z
