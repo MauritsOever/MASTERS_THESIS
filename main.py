@@ -44,7 +44,7 @@ def RE_analysis(data_type, in_sample=True):
 
     print(f'data of type {data_type}')
     
-    if data_type == 'returns':
+    if all([data_type == 'returns', in_sample==True]):
         epochs = 10000
         assumed_dims = [1,2,3,4,5]
         X, _ = GetData(data_type)
@@ -93,7 +93,7 @@ def RE_analysis(data_type, in_sample=True):
         print(files)
         with open(files, 'w') as f:
                 print(REdf.style.format().to_latex(), file=f)
-                    
+    
     else:
         if in_sample:
             for modeltype in ['normal', 't']: #, 't']:
@@ -183,17 +183,27 @@ def RE_analysis(data_type, in_sample=True):
             counter = 0
             print('we doing out of sample')
             
+            simulated_dims = [4]
+            
+            REs_PCA  = np.full((len(simulated_dims),len(assumed_dims)), 'f'*40)
             REs_gaus = np.full((len(simulated_dims),len(assumed_dims)), 'f'*40)
             REs_t = np.full((len(simulated_dims),len(assumed_dims)), 'f'*40)
             
+
+            
             for sim_dim in range(len(simulated_dims)):
-                data = GetData(data_type, simulated_dims[sim_dim], 0.5)
+                if data_type == 'returns':
+                    data, _ = GetData(data_type, simulated_dims[sim_dim], 0.5)
+                else:
+                    data = GetData(data_type, simulated_dims[sim_dim], 0.5)
                 # print(f'simdim = {simulated_dims[sim_dim]}')
                 
                 for ass_dim in range(len(assumed_dims)):
                     print(sim_dim, ass_dim)
-                    err_gaus = 100
-                    err_t    = 100
+                    err_pca = 0
+                    err_gaus = 10
+                    err_t    = 10
+                    
                     for i in range(10):
                         # define model w 10th missing, get error on remaining tenth
                         counter += 1
@@ -204,13 +214,24 @@ def RE_analysis(data_type, in_sample=True):
                         xtrain = np.delete(data, index, axis=0)
                         xtest  = data[index]
                         
+                        xtrain_standard =(xtrain - xtrain.mean(axis=0))/xtrain.std(axis=0) 
                         xtest_standard = (xtest - xtest.mean(axis=0))/xtest.std(axis=0)
-                                                   
-                        modelgaus = VAE(xtrain, ass_dim, layers=2,  dist='normal')
-                        modelt    = VAE(xtrain, ass_dim, layers=2,  dist='t')
+
+                        decomp = PCA(n_components=assumed_dims[ass_dim])
+                        decomp = decomp.fit(xtrain_standard)
                         
-                        modelgaus.fit(epochs)
-                        modelt.fit(epochs)
+                        transform = decomp.transform(xtest_standard)
+                        X_prime   = decomp.inverse_transform(transform)
+                        err_pca    = ((X_prime - xtest_standard)**2).mean()
+                        
+                        if ((X_prime - xtest_standard)**2).mean() > err_pca:
+                            err_pca = ((X_prime - xtest_standard)**2).mean()
+                                                                           
+                        modelgaus = VAE(xtrain, ass_dim, layers=3,  dist='normal')
+                        modelt    = VAE(xtrain, ass_dim, layers=3,  dist='t')
+                        
+                        modelgaus.fit(epochs=2500)
+                        modelt.fit(epochs=2500)
                         
                         gaus_output = modelgaus.decoder(modelgaus.encoder(torch.Tensor(xtest_standard))).detach().numpy()
                         t_output    = modelt.decoder(modelt.encoder(torch.Tensor(xtest_standard))).detach().numpy()
@@ -221,11 +242,17 @@ def RE_analysis(data_type, in_sample=True):
                         if ((t_output - xtest_standard)**2).mean() < err_t:
                             err_t = ((t_output - xtest_standard)**2).mean()
                         
-                    err_gaus = err_gaus
-                    err_t    = err_t 
+                        # err_gaus += ((gaus_output - xtest_standard)**2).mean()
+                        # err_t += ((t_output - xtest_standard)**2).mean()
+                        
+                    err_gaus #/= 10
+                    err_t    #/= 10
+                    
+                    REs_PCA[sim_dim, ass_dim]  = '\\cellcolor{blue!' + str(err_pca*85) + '}' + str(err_pca)
                     REs_gaus[sim_dim, ass_dim] = '\\cellcolor{blue!' + str(err_gaus*85) + '}' + str(err_gaus)
                     REs_t[sim_dim, ass_dim]    = '\\cellcolor{blue!' + str(err_t*85) + '}' + str(err_t)
-                
+                    
+            REs_pca  = pd.DataFrame(REs_PCA)
             REs_gaus = pd.DataFrame(REs_gaus)
             REs_t    = pd.DataFrame(REs_t)
             REs_gaus.index = simulated_dims
@@ -236,6 +263,10 @@ def RE_analysis(data_type, in_sample=True):
             
             with open(files, 'w') as f:
                 print('mixed data out of sample errors', file=f)
+                print('', file=f)
+                
+                print('PCA', file=f)
+                print(REs_pca.style.format().to_latex(), file=f)
                 print('', file=f)
                 
                 print('Gaussian VAE', file=f)
@@ -261,7 +292,7 @@ def RE_analysis(data_type, in_sample=True):
 def main():
     import warnings
     warnings.filterwarnings("ignore") 
-    RE_analysis('returns', in_sample=True)
+    RE_analysis('mix', in_sample=False)
 
 if __name__=='__main__':
     main()
