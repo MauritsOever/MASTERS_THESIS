@@ -66,12 +66,15 @@ class VAE(nn.Module):
         if self.dist == 't':
             self.nu   = 6 # assumed degrees of freedom for student t
         
-        self.beta = 10 # setting beta to zero is equivalent to a normal autoencoder
+        self.beta = 2.0 # setting beta to zero is equivalent to a normal autoencoder
         self.batch_wise = batch_wise
+        self.negative_slope = 0.1
                    
         # LeakyReLU for now
         self.encoder = self.construct_encoder(layers)
         self.decoder = self.construct_decoder(layers)
+        
+        
         
         
     def construct_encoder(self, layers):
@@ -90,12 +93,12 @@ class VAE(nn.Module):
         """
         network = OrderedDict()
         network['0'] = nn.Linear(self.dim_X, self.dim_Y)
-        network['1'] = nn.LeakyReLU() 
+        network['1'] = nn.LeakyReLU(negative_slope=self.negative_slope) 
         
         count = 2
-        for i in range(layers-2):
+        for i in range(layers-1):
             network[str(count)]   = nn.Linear(self.dim_Y, self.dim_Y)
-            network[str(count+1)] = nn.LeakyReLU()
+            network[str(count+1)] = nn.LeakyReLU(negative_slope=self.negative_slope)
             count += 2
         
         network[str(count)] = nn.Linear(self.dim_Y, self.dim_Z)
@@ -119,12 +122,12 @@ class VAE(nn.Module):
         """
         network = OrderedDict()
         network['0'] = nn.Linear(self.dim_Z, self.dim_Y)
-        network['1'] = nn.LeakyReLU()
+        network['1'] = nn.LeakyReLU(negative_slope=self.negative_slope)
         
         count = 2
-        for i in range(layers-2):
+        for i in range(layers-1):
             network[str(count)]   = nn.Linear(self.dim_Y, self.dim_Y)
-            network[str(count+1)] = nn.LeakyReLU()
+            network[str(count+1)] = nn.LeakyReLU(negative_slope=self.negative_slope)
             count += 2
         
         network[str(count)] = nn.Linear(self.dim_Y, self.dim_X)
@@ -215,8 +218,8 @@ class VAE(nn.Module):
                 std_target = 1.0
                 kurt_target = 3.0
             elif self.dist == 't':
-                std_target = 1.0 / np.sqrt((self.nu-2)/self.nu)
-                kurt_target = 6.0/(self.nu-4)
+                std_target = 1.2 / np.sqrt((self.nu-2)/self.nu)
+                kurt_target = 6.0/(self.nu-4) + 3.0
             
             cov_z = torch.cov(z.T)
             
@@ -225,7 +228,7 @@ class VAE(nn.Module):
             
             # second moment
             std_score = torch.linalg.norm(cov_z - torch.eye(z.shape[1])*std_target, ord=2)
-            
+                        
             # third and fourth moment
             diffs = z - z.mean(dim=0)
             zscores = diffs / diffs.std(dim=0)
@@ -244,7 +247,7 @@ class VAE(nn.Module):
                 
             elif self.dist == 't':
                 std_target =  std_target = torch.Tensor([(1/ np.sqrt((self.nu-2)/self.nu))]*self.dim_Z)
-                kurt_target = torch.Tensor([6/(self.nu-4)]*self.dim_Z)
+                kurt_target = torch.Tensor([6/(self.nu-4) + 3.0]*self.dim_Z)
             
             means = z.mean(dim=0)
             diffs = z - means
@@ -258,8 +261,12 @@ class VAE(nn.Module):
             skew_score = (skews**2).mean()
             kurt_score = ((kurts - kurt_target)**2).mean()
         
+        MMarray = np.array([mean_score.item(), std_score.item(), skew_score.item(), kurt_score.item()])
+        self.MMs = np.append(self.MMs, MMarray.reshape((1,4)), axis=0)
         
-        return mean_score + std_score + skew_score + kurt_score
+        
+        return 10*mean_score + 100*std_score + skew_score  + kurt_score
+        # return std_score
     
     
     def RE_MM_metric(self, epoch):
@@ -275,7 +282,7 @@ class VAE(nn.Module):
         # batch-wise optimisation
         # batch = int(self.X.shape[0]/100)
         if self.multivariate:
-            batch = 100
+            batch = 500
         else:
             batch = 500
         
@@ -302,9 +309,13 @@ class VAE(nn.Module):
         # get negative average log-likelihood here
         MM = self.MM(z)
         
+        
         # self.REs = (X.mean(dim=1) - x_prime.mean(dim=1))**2 # portfolio return RE
         # self.REs = (self.unstandardize_Xprime(X) - self.unstandardize_Xprime(x_prime))**2
-        self.REs = (X - x_prime)**2 # individual returns RE
+        self.REs = torch.abs((X - x_prime))**(4) # individual returns RE
+        
+        # X_sort = torch.sort(X, dim=0)
+        # self.REs = (X_sort[0] - x_prime.gather(0, X_sort[1]))**4
         
         RE = self.REs.mean() 
 
@@ -335,11 +346,9 @@ class VAE(nn.Module):
         from tqdm import tqdm
         
         self.train() # turn into training mode
-        REs  = []
-        MMs  = []
         
         optimizer = torch.optim.AdamW(self.parameters(),
-                             lr = 0.1,
+                             lr = 0.02,
                              weight_decay = 1e-3) # specify some hyperparams for the optimizer
         
         
@@ -347,6 +356,7 @@ class VAE(nn.Module):
         
         REs = np.zeros(epochs)
         MMs = np.zeros(epochs)
+        self.MMs = np.zeros((1,4))
         
         for epoch in tqdm(range(epochs)):
         # for epoch in range(epochs):
@@ -399,6 +409,7 @@ class VAE(nn.Module):
         z = self.encoder(self.X).detach().numpy().astype(np.double)
         garch = univariate_garch(z, self.dist)
         self.sigmas = garch.calibrate()
+        
         del garch
         
         return
@@ -417,7 +428,7 @@ class VAE(nn.Module):
 
         """
         from tqdm import tqdm
-        n = 1000
+        n = 2000
         
         VaRs = torch.empty((len(self.sigmas), self.dim_X))
 
@@ -432,7 +443,7 @@ class VAE(nn.Module):
                 sims = m.sample((n, self.dim_Z))[:,:,0]
                 
             
-            sims = (sims * self.sigmas[i]).float()
+            sims = (sims * sigmas**2).float()
             # sim_quantile = torch.quantile(sims, q, dim=0)
             
             

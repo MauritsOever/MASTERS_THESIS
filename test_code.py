@@ -20,20 +20,60 @@ import matplotlib.pyplot as plt
 from scipy import stats
 
 # GenerateAllDataSets(delete_existing=True)
-layerz = 6
+layerz = 1
 dim_Z  = 3
-q      = 0.05
+q      = 0.10
 epochs = 2000
 # clean and write
-X, weights = GetData('returns', correlated_dims=2, rho=0.75)
+X, weights = GetData('returns')
 
-model = VAE(X, dim_Z, layers=3, standardize = True, batch_wise=True, done=False, plot=False, dist='t')
+model = VAE(X, dim_Z, layers=layerz, standardize = True, batch_wise=True, done=False, plot=False, dist='t')
 model.fit(epochs)
+
+for i in range(4):
+    plt.plot(model.MMs[:,i])
+    plt.show()
+
+
+#%%
+z = model.encoder(model.X).detach().numpy()
+
+for i in range(dim_Z):
+    plt.hist(z[:,i])
+    plt.show()
+
+print(np.cov(z, rowvar=False))
+
+#%%
+X_standard = (X - X.mean(axis=0))/X.std(axis=0)
+
+x_prime = model.decoder(model.encoder(model.X)).detach().numpy()
+
+for i in range(X_standard.shape[1]):
+    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(15,5))
+    ax1.plot(X_standard[:,i])
+    #ax1.set_ylim([-20,20])
+    ax2.plot(x_prime[:,i])
+    #ax2.set_ylim([-20,20])
+    
+#%%
+test = np.random.standard_t(6.0, (1000,4))
+
+test2 = np.cov(test, rowvar=False)
+
+
+
+#%%
 model.fit_garch_latent()
 
 portVaRs = model.latent_GARCH_HS().mean(axis=1)
 portRets = X.mean(axis=1)
 violations = np.array(torch.Tensor(portVaRs > portRets).long())
+
+plt.plot(portRets)
+plt.plot(portVaRs)
+plt.tight_layout()
+plt.show()
 
 print('')
 print(f'model REs = {model.REs.mean()}')
@@ -41,63 +81,46 @@ print(f'ratio     = {np.sum(violations)/len(violations)}')
 
 
 #%%
-REs    = [0.025, 0.018, 0.049, 0.083, 0.06, 0.0249, 0.0399, 0.046, 0.0425, 0.008] # portret optim
-ratios = [0.0469, 0.0136, 0.049, 0.076, 0.1106, 0.0108, 0.13, 0.022, 0.0641, 0.007]
-
-plt.scatter(REs, ratios)
-plt.title('portret optim')
-plt.xlabel('REs')
-plt.ylabel('ratio')
-plt.show()
-
-
-REs    = [3.93, 0.55, 0.54, 0.51, 0.54, 1.05, 1.026] # indiv ret optim
-ratios = [0.0, 0.0003, 0.001, 0.0003, 0.0003, 0.072, 0.082]
-
-plt.scatter(REs, ratios)
-plt.title('portret optim')
-plt.xlabel('REs')
-plt.ylabel('ratio')
-plt.show()
-
-#%% 
 from sklearn.decomposition import PCA
-from models.Gauss_VAE import GaussVAE
-from data.datafuncs import GetData, GenerateAllDataSets
+from data.datafuncs import GetData
+from models.GARCH import univariate_garch
 import numpy as np
-import seaborn as sb
+import matplotlib.pyplot as plt
 
-layerz = 7
-dim_Z = 15
+dist = 'normal'
+dim_Z = 5
 q = 0.05
-epochs = 5000
+X, _ = GetData('returns')
+means = X.mean(axis=0)
+stds  = X.std(axis=0)
+X_standard = (X - means)/stds
 
-X, weights = GetData('returns')
+weights = np.full((X.shape[0], X.shape[1]), 1.0/X.shape[1])
 
-# define PCs
-decomp = PCA(n_components=X.shape[1])
-decomp.fit(X)
-data_comp = decomp.transform(X)
-data_comp = (data_comp - np.mean(data_comp, axis=0)) / np.std(data_comp, axis=0)
+comp = PCA(n_components = dim_Z)
+comp = comp.fit(X_standard)
+transform = comp.transform(X_standard)
+sigmas = univariate_garch(transform, dist).calibrate()
 
-# get z
-model = GaussVAE(X, dim_Z, layers=layerz, batch_wise=True, done=False)
-model.fit(epochs=epochs)
-z = model.encoder(model.X).detach().numpy()
+VaRs = np.zeros((len(sigmas), X.shape[1]))
+for i in range(len(sigmas)):
+    
+    sims = np.random.normal(loc=0, scale=1, size=(1000, dim_Z)) * np.sqrt(sigmas[i,:])
+    sims = comp.inverse_transform(sims)
+    sims = sims * stds + means
+    VaRs[i, :] = np.quantile(sims, q, axis=0) 
+    
+portVaRs = np.sum(VaRs * weights, axis=1)
+portRets = np.sum(X * weights, axis=1)
 
-# plot/corr
-PCs_Z = np.append(z, data_comp[:, :z.shape[1]], axis=1)
-sb.heatmap(np.corrcoef(PCs_Z, rowvar = False))
-X_Z = np.append(z, X, axis=1)
-sb.heatmap(np.corrcoef(X_Z, rowvar = False))
-
-plt.figure(figsize = (15,3))
-plt.plot(range(z.shape[0]), z[:,1], alpha=0.3)
-plt.plot(range(data_comp.shape[0]), data_comp[:,0], alpha=0.3)
-plt.legend(['z', 'pc'])
+plt.plot(portRets)
+plt.plot(portVaRs)
 plt.show()
 
+violations = (portVaRs > portRets).astype(int)
 
+
+print(f'ratio = {np.sum(violations) / len(violations)}')
 
 #%% 
 import os
@@ -151,3 +174,5 @@ print(info.style.format(precision=3, escape='latex').to_latex())
 
 plt.plot(data[data['atmVola'].isna()]['numOptions'])
 plt.plot(data[data['atmVola'].isna() == False]['numOptions'])
+
+

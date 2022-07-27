@@ -335,19 +335,20 @@ class univariate_garch:
         self.dist = dist
     
     def calibrate(self):
-        scaling = 100
+        scaling = 1
         sigmas = np.zeros((self.n, self.K))
         
         for col in range(self.K):
             series = self.data[:,col].copy(order='C')
             
             
-            garch = arch_model(series*scaling, mean='zero', vol='GARCH', dist=self.dist)
+            garch = arch_model(series*scaling, mean='zero', vol='GARCH', dist=self.dist, rescale=True)
             garch = garch.fit(disp=False)
+            print(garch.params)
             # print(f'estimated nu = {garch.params.nu}')
             sigmas[:,col] = garch.conditional_volatility/scaling
         
-        return sigmas
+        return sigmas#, garch
 #%%
 # import os
 # os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
