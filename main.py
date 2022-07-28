@@ -198,13 +198,13 @@ def GARCH_analysis_coldstart(mode, dist, amount_of_runs=5, dim_Z=5, q=0.05):
 
 def run_all_coldstarts():
     
-    amount_of_runs = 1
+    amount_of_runs = 20
     
     dictionary = {}
-    for mode in ['PCA']:
-        for dist in ['normal', 't']:
+    for mode in ['VAE']:
+        for dist in ['normal']:
             for q in [0.01, 0.05, 0.10]:
-                for dim_Z in [1,3,5]:
+                for dim_Z in [3]:
                     dictionary[f'mode={mode}, dist={dist}, q={q}, dim_Z={dim_Z}'] = GARCH_analysis_coldstart(mode, dist, amount_of_runs, dim_Z, q)
 
                     # print(f'ratio      = {result[0]}')
