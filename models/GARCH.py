@@ -344,7 +344,7 @@ class univariate_garch:
             
             garch = arch_model(series*scaling, mean='zero', vol='GARCH', dist=self.dist, rescale=True)
             garch = garch.fit(disp=False)
-            print(garch.params)
+            # print(garch.params)
             # print(f'estimated nu = {garch.params.nu}')
             sigmas[:,col] = garch.conditional_volatility/scaling
         

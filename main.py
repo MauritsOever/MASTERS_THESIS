@@ -27,15 +27,13 @@ from scipy import stats
 from sklearn.decomposition import PCA
 import datetime
 
-def GARCH_analysis(mode, dist, dim_Z):
+def GARCH_analysis(mode, dist, dim_Z, q):
     print('')
     print('VAE-GARCH analysis running...')
     
     print(f'Mode = {mode}')
     print(f'Dist = {dist}')
     print('')
-    
-    q = 0.05
     
     if mode == 'VAE':       
         print('load in return data: ')
@@ -49,7 +47,7 @@ def GARCH_analysis(mode, dist, dim_Z):
         # if dist is normal --> gauss, if dist not normal --> t
         model = VAE(X, dim_Z, layers=1, plot=False, batch_wise=True, standardize=True, dist=dist)
         print('fitting VAE...')
-        model.fit(epochs=2000)
+        model.fit(epochs=500)
         print('')
         print('fitting GARCH...')
         model.fit_garch_latent()
@@ -87,7 +85,7 @@ def GARCH_analysis(mode, dist, dim_Z):
             if dist == 'normal':
                 sims = np.random.normal(loc=0, scale=1, size=(1000, dim_Z)) * sigmas[i,:]
             else:
-                sims = np.random.standard_t(df=100.) * sigmas[i,:]
+                sims = np.random.standard_t(df=6.) * sigmas[i,:]
                 
             sims = comp.inverse_transform(sims)
             sims = sims * stds + means
@@ -95,15 +93,20 @@ def GARCH_analysis(mode, dist, dim_Z):
             
         portVaRs = np.sum(VaRs * weights, axis=1)
         portRets = np.sum(X * weights, axis=1)
+        
+        # path = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\THESIS\present\GARCH'
+        # filename = path + f'\mode={mode} dist={dist}, q={q}, dim_z={dim_Z}.png'
+        
+        # plt.plot(portRets)
+        # plt.plot(portVaRs)
+        # plt.savefig(filename)
+        # plt.show()
     
     else:
         print(f'mode {mode} is not a valid mode')
         return [0,0,0]
 
-    plt.plot(portRets)
-    plt.plot(portVaRs)
 
-    plt.show()
     
     # ESsNP = ESs.detach().numpy()
     violations = np.array(torch.Tensor(portVaRs > portRets).long())
@@ -153,7 +156,7 @@ def GARCH_analysis(mode, dist, dim_Z):
     else:
         return[ratio, pval_ratio, pval_chris, portRets, portVaRs]
 
-def GARCH_analysis_coldstart(mode, dist, amount_of_runs=5, dim_Z=5):
+def GARCH_analysis_coldstart(mode, dist, amount_of_runs=5, dim_Z=5, q=0.05):
     begin_time = datetime.datetime.now()
     old_result = [0,0,0]
     
@@ -162,36 +165,64 @@ def GARCH_analysis_coldstart(mode, dist, amount_of_runs=5, dim_Z=5):
     
     for i in range(amount_of_runs):
         print(f'run number {i+1} out of {amount_of_runs}')
-        result = GARCH_analysis(mode, dist, dim_Z)
-        if result[1] > old_result[1]:
+        result = GARCH_analysis(mode, dist, dim_Z, q)
+        if amount_of_runs > 1:
+            if result[1] > old_result[1]:
+                old_result = result
+        else:
             old_result = result
             
-    win32api.MessageBox(0, 'GARCH analysis is done :)', 'Done!', 0x00001040)
-    if amount_of_runs > 1:
-        print('')
-        print('best run:')
-        print(f'ratio      = {old_result[0]}')
-        print(f'pval       = {old_result[1]}')
-        print(f'pval chris = {old_result[2]}')
-        if mode == 'VAE':
-            print(f'RE         = {old_result[5]}')
-            #print(f'MM         = {old_result[6]}')
-        
-        plt.plot(old_result[3])
-        plt.plot(old_result[4])
-        plt.show()
+    # win32api.MessageBox(0, 'GARCH analysis is done :)', 'Done!', 0x00001040)
+
+    print('')
+    print('best run:')
+    print(f'ratio      = {old_result[0]}')
+    print(f'pval       = {old_result[1]}')
+    print(f'pval chris = {old_result[2]}')
+    
+    path = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\THESIS\present\GARCH'
+    filename = path + f'\mode={mode} dist={dist}, q={q}, dim_z={dim_Z}.png'
+    
+    plt.plot(old_result[3])
+    plt.plot(old_result[4])
+    plt.title('q = '+str(q))
+    plt.legend(['Returns', 'VaR'])
+    plt.savefig(filename)
+    plt.show()
     
     time = datetime.datetime.now() - begin_time
     print('')
     print(f'time to run was {time}')
-         
+    
+    return old_result
 
+def run_all_coldstarts():
+    
+    amount_of_runs = 1
+    
+    dictionary = {}
+    for mode in ['PCA']:
+        for dist in ['normal', 't']:
+            for q in [0.01, 0.05, 0.10]:
+                for dim_Z in [1,3,5]:
+                    dictionary[f'mode={mode}, dist={dist}, q={q}, dim_Z={dim_Z}'] = GARCH_analysis_coldstart(mode, dist, amount_of_runs, dim_Z, q)
+
+                    # print(f'ratio      = {result[0]}')
+                    # print(f'pval       = {result[1]}')
+                    # print(f'pval chris = {result[2]}')
+   
+                    
+    return dictionary
+
+
+dictionary = run_all_coldstarts()
 #%% 
 def main():
     import warnings
     warnings.filterwarnings("ignore") 
-    # test = RE_analysis()
-    GARCH_analysis_coldstart('VAE', 't', amount_of_runs=20, dim_Z=3)
-
+    
+    run_all_coldstarts()
+    
+    
 if __name__=='__main__':
      main()

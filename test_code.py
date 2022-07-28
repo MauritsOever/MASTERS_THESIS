@@ -23,11 +23,11 @@ from scipy import stats
 layerz = 1
 dim_Z  = 3
 q      = 0.10
-epochs = 2000
+epochs = 5000
 # clean and write
 X, weights = GetData('returns')
 
-model = VAE(X, dim_Z, layers=layerz, standardize = True, batch_wise=True, done=False, plot=False, dist='t')
+model = VAE(X, dim_Z, layers=layerz, standardize = True, batch_wise=True, done=False, plot=False, dist='normal')
 model.fit(epochs)
 
 for i in range(4):
@@ -47,15 +47,19 @@ print(np.cov(z, rowvar=False))
 #%%
 X_standard = (X - X.mean(axis=0))/X.std(axis=0)
 
-x_prime = model.decoder(model.encoder(model.X)).detach().numpy()
+x_prime = (model.decoder(model.encoder(model.X)) + model.resids[torch.randperm(model.resids.shape[0]), :]).detach().numpy()
+
+resids = model.resids[torch.randperm(model.resids.shape[0]), :]
+x_sim   = (model.decoder(torch.randn((3214, dim_Z))) + resids).detach().numpy()
+
+# x_prime = (model.decoder(model.encoder(model.X))).detach().numpy()
 
 for i in range(X_standard.shape[1]):
     fig, (ax1, ax2) = plt.subplots(1,2, figsize=(15,5))
     ax1.plot(X_standard[:,i])
-    #ax1.set_ylim([-20,20])
+    ax1.set_ylim([-20,20])
     ax2.plot(x_prime[:,i])
-    #ax2.set_ylim([-20,20])
-    
+    ax2.set_ylim([-20,20])
 #%%
 test = np.random.standard_t(6.0, (1000,4))
 

@@ -167,7 +167,7 @@ class VAE(nn.Module):
         Rescaled multidimensional float tensor
 
         """
-        return (X_prime * self.means_vars_X[1]**2 + self.means_vars_X[0])
+        return (X_prime * self.means_vars_X[1] + self.means_vars_X[0])
     
     def force_tensor(self, X):
         """
@@ -380,6 +380,12 @@ class VAE(nn.Module):
             plt.title('neg avg MMs')
             plt.show()
         self.eval() # turn back into performance mode
+        
+        # self.var_loss = self.X / self.decoder(self.encoder(self.X))
+        # print(f'self.var_loss = {self.var_loss}')
+        
+        self.resids  = self.X - self.decoder(self.encoder(self.X))
+        
         if self.done_bool:
             self.done()
         
@@ -444,8 +450,6 @@ class VAE(nn.Module):
                 
             
             sims = (sims * sigmas**2).float()
-            # sim_quantile = torch.quantile(sims, q, dim=0)
-            
             
             # put through decoder    
             if self.standardize:
@@ -454,12 +458,9 @@ class VAE(nn.Module):
                 Xsims = self.decoder(sims)
 
             VaRs[i,:] = torch.quantile(Xsims, q, dim=0)
-            # return time series of quantiles
-            # for col in range(Xsims.shape[1]):
-            #     ESs[i, col] = torch.mean(Xsims[Xsims[:,col]<VaRs[i,col],col])
+
             del sims
-            
-        return VaRs.detach().numpy() #, ESs
+        return VaRs.detach().numpy() 
 
 
             
