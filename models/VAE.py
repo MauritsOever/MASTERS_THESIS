@@ -358,8 +358,8 @@ class VAE(nn.Module):
         MMs = np.zeros(epochs)
         self.MMs = np.zeros((1,4))
         
-        for epoch in tqdm(range(epochs)):
-        # for epoch in range(epochs):
+        # for epoch in tqdm(range(epochs)):
+        for epoch in range(epochs):
             RE_MM = self.RE_MM_metric(epoch) # store RE and KL in tuple
             loss = self.loss_function(RE_MM) # calculate loss function based on tuple
             
@@ -434,11 +434,11 @@ class VAE(nn.Module):
 
         """
         from tqdm import tqdm
-        n = 2000
+        n = 1000
         
         VaRs = torch.empty((len(self.sigmas), self.dim_X))
 
-        for i in tqdm(range(len(self.sigmas))):
+        for i in range(len(self.sigmas)):
             sigmas = torch.Tensor(self.sigmas[i,:])
             if self.dist == 'normal':
                 sims = torch.randn((n, self.dim_Z))
