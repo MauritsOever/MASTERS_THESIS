@@ -47,7 +47,7 @@ def GARCH_analysis(mode, dist, dim_Z, q):
         # if dist is normal --> gauss, if dist not normal --> t
         model = VAE(X, dim_Z, layers=1, plot=False, batch_wise=True, standardize=True, dist=dist)
         #print('fitting VAE...')
-        model.fit(epochs=500)
+        model.fit(epochs=400)
         #print('')
         #print('fitting GARCH...')
         model.fit_garch_latent()
@@ -85,7 +85,7 @@ def GARCH_analysis(mode, dist, dim_Z, q):
             if dist == 'normal':
                 sims = np.random.normal(loc=0, scale=1, size=(1000, dim_Z)) * sigmas[i,:]
             else:
-                sims = np.random.standard_t(df=6.) * sigmas[i,:]
+                sims = np.random.standard_t(df=6., size=(1000, dim_Z)) * sigmas[i,:]
                 
             sims = comp.inverse_transform(sims)
             sims = sims * stds + means
@@ -196,22 +196,22 @@ def GARCH_analysis_coldstart(mode, dist, amount_of_runs=5, dim_Z=5, q=0.05):
 
 def run_all_coldstarts():
     
-    amount_of_runs = 2
+    amount_of_runs = 20
     
     dictionary = {}
     
-    modes  = ['VAE']
-    dists  = ['normal']
-    qs     = [0.10, 0.05, 0.01]
+    modes  = ['PCA']
+    dists  = ['t']
+    qs     = [0.1, 0.05, 0.01]
     dim_Zs = [3]
     
     total_runs = len(modes)*len(dists)*len(qs)*len(dim_Zs)*amount_of_runs
     print(f'doing {total_runs} runs')
     count = 0
-    for mode in ['VAE']:
-        for dist in ['normal']:
-            for q in [0.01, 0.05, 0.10]:
-                for dim_Z in [3]:
+    for mode in modes:
+        for dist in dists:
+            for q in qs:
+                for dim_Z in dim_Zs:
                     dictionary[f'mode={mode}, dist={dist}, q={q}, dim_Z={dim_Z}'] = GARCH_analysis_coldstart(mode, dist, amount_of_runs, dim_Z, q)
                     count += amount_of_runs
                     print(f'runs {count} done out of {total_runs}')

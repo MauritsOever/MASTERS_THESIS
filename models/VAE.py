@@ -449,7 +449,9 @@ class VAE(nn.Module):
                 sims = m.sample((n, self.dim_Z))[:,:,0]
                 
             
-            sims = (sims * sigmas**2).float()
+            # sims = (sims * sigmas**2).float()
+            sims = (sims * sigmas).float()
+            
             
             # put through decoder    
             if self.standardize:
