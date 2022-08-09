@@ -66,7 +66,7 @@ print(f'ratio = {sum(violations) / len(violations)}')
 #%% 
 import numpy as np
 
-violations = np.random.binomial(1, 0.10, size = (100,1))
+violations = np.random.binomial(1, 0.01, size = (50000,1))
 
 def christoffersens_independence_test(violations):
     a00s = 0
@@ -92,9 +92,7 @@ def christoffersens_independence_test(violations):
         qstar = (a00s + a10s) / (a00s+a01s+a10s+a11s)
         Lambda = (qstar/qstar0)**(a00s) * ((1-qstar)/(1-qstar0))**(a01s) * (qstar/qstar1)**(a10s) * ((1-qstar)/(1-qstar1))**(a11s)
         
-        print(-2*np.log(Lambda))
-        
-        pval_chris = stats.chi2.ppf(-2*np.log(Lambda), df=1)
+        pval_chris = stats.chi2.pdf(-2*np.log(Lambda), df=1)
         #print(f'pvalue christoffersens test = {pval_chris}')
     else:
         pval_chris = 0

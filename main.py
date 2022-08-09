@@ -28,6 +28,39 @@ from sklearn.decomposition import PCA
 import datetime
 import scipy
 
+def christoffersens_independence_test(violations):
+    a00s = 0
+    a01s = 0
+    a10s = 0
+    a11s = 0
+    for i in range(violations.shape[0]):
+        # independence
+            if violations[i-1] == 0:
+                if violations[i] == 0:
+                    a00s += 1
+                else:
+                    a01s += 1
+            else:
+                if violations[i] == 0:
+                    a10s += 1
+                else:
+                    a11s += 1
+                    
+    if a11s > 0 and a00s > 0:            
+        qstar0 = a00s / (a00s + a01s)
+        qstar1 = a10s / (a10s + a11s)
+        qstar = (a00s + a10s) / (a00s+a01s+a10s+a11s)
+        Lambda = (qstar/qstar0)**(a00s) * ((1-qstar)/(1-qstar0))**(a01s) * (qstar/qstar1)**(a10s) * ((1-qstar)/(1-qstar1))**(a11s)
+                
+        pval_chris = stats.chi2.pdf(-2*np.log(Lambda), df=1)
+        #print(f'pvalue christoffersens test = {pval_chris}')
+    else:
+        pval_chris = 0
+        #print('There are no consecutive exceedences, so we can accept independence')
+    
+    return pval_chris
+
+
 
 def GARCH_analysis(mode, dist, dim_Z, q):
     #print('')
@@ -123,38 +156,7 @@ def GARCH_analysis(mode, dist, dim_Z, q):
     pval_ratio = stats.binom_test(sum(violations), len(violations), p=q)
     
     #print(f'ratio of violations = {ratio}')
-    #print(f'p-value of binom test = {pval_ratio}')
-    a00s = 0
-    a01s = 0
-    a10s = 0
-    a11s = 0
-    for i in range(violations.shape[0]):
-        # independence
-            if violations[i-1] == 0:
-                if violations[i] == 0:
-                    a00s += 1
-                else:
-                    a01s += 1
-            else:
-                if violations[i] == 0:
-                    a10s += 1
-                else:
-                    a11s += 1
-                    
-    if a11s > 0 and a00s > 0:            
-        qstar0 = a00s / (a00s + a01s)
-        qstar1 = a10s / (a10s + a11s)
-        qstar = (a00s + a10s) / (a00s+a01s+a10s+a11s)
-        Lambda = (qstar/qstar0)**(a00s) * ((1-qstar)/(1-qstar0))**(a01s) * (qstar/qstar1)**(a10s) * ((1-qstar)/(1-qstar1))**(a11s)
-        
-        pval_chris = stats.chi2.ppf(-2*np.log(Lambda), df=1)
-        #print(f'pvalue christoffersens test = {pval_chris}')
-    else:
-        pval_chris = 0
-        #print('There are no consecutive exceedences, so we can accept independence')
-    
-
-    del a00s, a01s, a10s, a11s, violations
+    pval_chris = christoffersens_independence_test(violations)    
     
     if mode == 'VAE':
         return [ratio, pval_ratio, pval_chris, portRets, portVaRs, RE, MM]
@@ -207,8 +209,8 @@ def run_all_coldstarts():
     
     dictionary = {}
     
-    modes  = ['PCA']
-    dists  = ['t']
+    modes  = ['VAE']
+    dists  = ['normal']
     qs     = [0.1, 0.05, 0.01]
     dim_Zs = [3]
     
