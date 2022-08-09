@@ -26,6 +26,8 @@ import matplotlib.pyplot as plt
 from scipy import stats
 from sklearn.decomposition import PCA
 import datetime
+import scipy
+
 
 def GARCH_analysis(mode, dist, dim_Z, q):
     #print('')
@@ -66,7 +68,6 @@ def GARCH_analysis(mode, dist, dim_Z, q):
     
     elif mode == 'PCA':
 
-        # data, PCA fit and compress, then store loadings
         X, _ = GetData('returns')
         means = X.mean(axis=0)
         stds  = X.std(axis=0)
@@ -80,17 +81,23 @@ def GARCH_analysis(mode, dist, dim_Z, q):
         sigmas = univariate_garch(transform, dist).calibrate()
         
         VaRs = np.zeros((len(sigmas), X.shape[1]))
+        
         for i in range(len(sigmas)):
             
             if dist == 'normal':
-                sims = np.random.normal(loc=0, scale=1, size=(1000, dim_Z)) * sigmas[i,:]
+                sims = np.random.normal(loc=0, scale=1, size=(1000, X.shape[1])) # * sigmas[i,:]
             else:
-                sims = np.random.standard_t(df=6., size=(1000, dim_Z)) * sigmas[i,:]
-                
-            sims = comp.inverse_transform(sims)
-            sims = sims * stds + means
-            VaRs[i, :] = np.quantile(sims, q, axis=0) 
+                sims = np.random.standard_t(df=25., size=(1000, X.shape[1])) #* sigmas[i,:]
             
+            l = scipy.linalg.cholesky(np.diag(sigmas[i,:]))
+            
+            covmat = comp.components_.T @ l @ comp.components_
+            sims = sims @ covmat
+            
+            # sims = comp.inverse_transform(sims)
+            sims = sims * stds + means # bring back to rets
+            VaRs[i, :] = np.quantile(sims, q, axis=0)
+                    
         portVaRs = np.sum(VaRs * weights, axis=1)
         portRets = np.sum(X * weights, axis=1)
         

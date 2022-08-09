@@ -12,77 +12,98 @@ os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHu
 
 from models.VAE import VAE
 from data.datafuncs import GetData, GenerateAllDataSets
+from models.GARCH import univariate_garch
+
 import torch
 import numpy as np
 import pandas as pd
 import mpmath
 import matplotlib.pyplot as plt
 from scipy import stats
+import scipy
+from sklearn.decomposition import PCA
 
-# GenerateAllDataSets(delete_existing=True)
-layerz = 1
-dim_Z  = 3
-q      = 0.10
-epochs = 5000
-# clean and write
-X, weights = GetData('returns')
+dim_Z = 3
+dist = 'normal'
+q = 0.05
 
-model = VAE(X, dim_Z, layers=layerz, standardize = True, batch_wise=True, done=False, plot=False, dist='normal')
-model.fit(epochs)
+X, _ = GetData('returns')
+means = X.mean(axis=0)
+stds  = X.std(axis=0)
+X_standard = (X - means)/stds
 
-for i in range(4):
-    plt.plot(model.MMs[:,i])
-    plt.show()
+weights = np.full((X.shape[0], X.shape[1]), 1.0/X.shape[1])
 
+comp = PCA(n_components = dim_Z)
+comp = comp.fit(X_standard)
+transform = comp.transform(X_standard)
+sigmas = univariate_garch(transform, dist).calibrate()
 
-#%%
-z = model.encoder(model.X).detach().numpy()
+VaRs = np.zeros((len(sigmas), X.shape[1]))
 
-for i in range(dim_Z):
-    plt.hist(z[:,i])
-    plt.show()
-
-print(np.cov(z, rowvar=False))
-
-#%%
-X_standard = (X - X.mean(axis=0))/X.std(axis=0)
-
-x_prime = (model.decoder(model.encoder(model.X)) + model.resids[torch.randperm(model.resids.shape[0]), :]).detach().numpy()
-
-resids = model.resids[torch.randperm(model.resids.shape[0]), :]
-x_sim   = (model.decoder(torch.randn((3214, dim_Z))) + resids).detach().numpy()
-
-# x_prime = (model.decoder(model.encoder(model.X))).detach().numpy()
-
-for i in range(X_standard.shape[1]):
-    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(15,5))
-    ax1.plot(X_standard[:,i])
-    ax1.set_ylim([-20,20])
-    ax2.plot(x_prime[:,i])
-    ax2.set_ylim([-20,20])
-#%%
-test = np.random.standard_t(6.0, (1000,4))
-
-test2 = np.cov(test, rowvar=False)
-
-
-
-#%%
-model.fit_garch_latent()
-
-portVaRs = model.latent_GARCH_HS().mean(axis=1)
-portRets = X.mean(axis=1)
+for i in range(len(sigmas)):
+    
+    if dist == 'normal':
+        sims = np.random.normal(loc=0, scale=1, size=(1000, X.shape[1])) # * sigmas[i,:]
+    else:
+        sims = np.random.standard_t(df=25., size=(1000, X.shape[1])) #* sigmas[i,:]
+    
+    l = scipy.linalg.cholesky(np.diag(sigmas[i,:]))
+    
+    covmat = comp.components_.T @ l @ comp.components_
+    sims = sims @ covmat
+    
+    # sims = comp.inverse_transform(sims)
+    sims = sims * stds + means # bring back to rets
+    VaRs[i, :] = np.quantile(sims, q, axis=0) 
+    
+portVaRs = np.sum(VaRs * weights, axis=1)
+portRets = np.sum(X * weights, axis=1)
 violations = np.array(torch.Tensor(portVaRs > portRets).long())
 
-plt.plot(portRets)
-plt.plot(portVaRs)
-plt.tight_layout()
-plt.show()
+print(f'ratio = {sum(violations) / len(violations)}')
 
-print('')
-print(f'model REs = {model.REs.mean()}')
-print(f'ratio     = {np.sum(violations)/len(violations)}')
+#%% 
+import numpy as np
 
+violations = np.random.binomial(1, 0.10, size = (100,1))
+
+def christoffersens_independence_test(violations):
+    a00s = 0
+    a01s = 0
+    a10s = 0
+    a11s = 0
+    for i in range(violations.shape[0]):
+        # independence
+            if violations[i-1] == 0:
+                if violations[i] == 0:
+                    a00s += 1
+                else:
+                    a01s += 1
+            else:
+                if violations[i] == 0:
+                    a10s += 1
+                else:
+                    a11s += 1
+                    
+    if a11s > 0 and a00s > 0:            
+        qstar0 = a00s / (a00s + a01s)
+        qstar1 = a10s / (a10s + a11s)
+        qstar = (a00s + a10s) / (a00s+a01s+a10s+a11s)
+        Lambda = (qstar/qstar0)**(a00s) * ((1-qstar)/(1-qstar0))**(a01s) * (qstar/qstar1)**(a10s) * ((1-qstar)/(1-qstar1))**(a11s)
+        
+        print(-2*np.log(Lambda))
+        
+        pval_chris = stats.chi2.ppf(-2*np.log(Lambda), df=1)
+        #print(f'pvalue christoffersens test = {pval_chris}')
+    else:
+        pval_chris = 0
+        #print('There are no consecutive exceedences, so we can accept independence')
+    
+    plt.plot(violations)
+    return pval_chris
+
+print(christoffersens_independence_test(violations))
 
 #%%
 from sklearn.decomposition import PCA
