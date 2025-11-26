@@ -10,79 +10,140 @@ import os
 os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
 # os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
 
-from models.Gauss_VAE import GaussVAE
-from models.GaussMix_VAE import GaussMixVAE
-from models.StudentT_VAE import StudentTVAE
-from models.MGARCH import DCC_garch, robust_garch_torch
+from models.VAE import VAE
 from data.datafuncs import GetData, GenerateAllDataSets
+from models.GARCH import univariate_garch
+
 import torch
 import numpy as np
 import pandas as pd
 import mpmath
 import matplotlib.pyplot as plt
 from scipy import stats
+import scipy
+from sklearn.decomposition import PCA
 
-# GenerateAllDataSets(delete_existing=True)
-layerz = 6
-dim_Z = 15
+dim_Z = 3
+dist = 'normal'
 q = 0.05
-epochs = 5000
-# clean and write
-X, weights = GetData('returns', correlated_dims=2, rho=0.75)
 
+X, _ = GetData('returns')
+means = X.mean(axis=0)
+stds  = X.std(axis=0)
+X_standard = (X - means)/stds
 
-RE = 0
-# model = GaussVAE(X, dim_Z)
-for i in range(10):
-    print(f'i is {i}')
-    model = GaussVAE(X, dim_Z, layers=layerz, batch_wise=True, done=False)
-    model.fit(epochs=epochs)
-    RE += model.REs.mean().detach().numpy()
-print('\n')
-print(f'dim_z  = {dim_Z}')
-print(f'epochs = {epochs}')
-print(f'layers = {layerz}')
-print(f'RE     = {RE/10}')
-z = model.encoder(model.X).detach().numpy()
+weights = np.full((X.shape[0], X.shape[1]), 1.0/X.shape[1])
+
+comp = PCA(n_components = dim_Z)
+comp = comp.fit(X_standard)
+transform = comp.transform(X_standard)
+sigmas = univariate_garch(transform, dist).calibrate()
+
+VaRs = np.zeros((len(sigmas), X.shape[1]))
+
+for i in range(len(sigmas)):
+    
+    if dist == 'normal':
+        sims = np.random.normal(loc=0, scale=1, size=(1000, X.shape[1])) # * sigmas[i,:]
+    else:
+        sims = np.random.standard_t(df=25., size=(1000, X.shape[1])) #* sigmas[i,:]
+    
+    l = scipy.linalg.cholesky(np.diag(sigmas[i,:]))
+    
+    covmat = comp.components_.T @ l @ comp.components_
+    sims = sims @ covmat
+    
+    # sims = comp.inverse_transform(sims)
+    sims = sims * stds + means # bring back to rets
+    VaRs[i, :] = np.quantile(sims, q, axis=0) 
+    
+portVaRs = np.sum(VaRs * weights, axis=1)
+portRets = np.sum(X * weights, axis=1)
+violations = np.array(torch.Tensor(portVaRs > portRets).long())
+
+print(f'ratio = {sum(violations) / len(violations)}')
 
 #%% 
-from sklearn.decomposition import PCA
-from models.Gauss_VAE import GaussVAE
-from data.datafuncs import GetData, GenerateAllDataSets
 import numpy as np
-import seaborn as sb
 
-layerz = 7
-dim_Z = 15
+violations = np.random.binomial(1, 0.01, size = (50000,1))
+
+def christoffersens_independence_test(violations):
+    a00s = 0
+    a01s = 0
+    a10s = 0
+    a11s = 0
+    for i in range(violations.shape[0]):
+        # independence
+            if violations[i-1] == 0:
+                if violations[i] == 0:
+                    a00s += 1
+                else:
+                    a01s += 1
+            else:
+                if violations[i] == 0:
+                    a10s += 1
+                else:
+                    a11s += 1
+                    
+    if a11s > 0 and a00s > 0:            
+        qstar0 = a00s / (a00s + a01s)
+        qstar1 = a10s / (a10s + a11s)
+        qstar = (a00s + a10s) / (a00s+a01s+a10s+a11s)
+        Lambda = (qstar/qstar0)**(a00s) * ((1-qstar)/(1-qstar0))**(a01s) * (qstar/qstar1)**(a10s) * ((1-qstar)/(1-qstar1))**(a11s)
+        
+        pval_chris = stats.chi2.pdf(-2*np.log(Lambda), df=1)
+        #print(f'pvalue christoffersens test = {pval_chris}')
+    else:
+        pval_chris = 0
+        #print('There are no consecutive exceedences, so we can accept independence')
+    
+    plt.plot(violations)
+    return pval_chris
+
+print(christoffersens_independence_test(violations))
+
+#%%
+from sklearn.decomposition import PCA
+from data.datafuncs import GetData
+from models.GARCH import univariate_garch
+import numpy as np
+import matplotlib.pyplot as plt
+
+dist = 'normal'
+dim_Z = 5
 q = 0.05
-epochs = 5000
+X, _ = GetData('returns')
+means = X.mean(axis=0)
+stds  = X.std(axis=0)
+X_standard = (X - means)/stds
 
-X, weights = GetData('returns')
+weights = np.full((X.shape[0], X.shape[1]), 1.0/X.shape[1])
 
-# define PCs
-decomp = PCA(n_components=X.shape[1])
-decomp.fit(X)
-data_comp = decomp.transform(X)
-data_comp = (data_comp - np.mean(data_comp, axis=0)) / np.std(data_comp, axis=0)
+comp = PCA(n_components = dim_Z)
+comp = comp.fit(X_standard)
+transform = comp.transform(X_standard)
+sigmas = univariate_garch(transform, dist).calibrate()
 
-# get z
-model = GaussVAE(X, dim_Z, layers=layerz, batch_wise=True, done=False)
-model.fit(epochs=epochs)
-z = model.encoder(model.X).detach().numpy()
+VaRs = np.zeros((len(sigmas), X.shape[1]))
+for i in range(len(sigmas)):
+    
+    sims = np.random.normal(loc=0, scale=1, size=(1000, dim_Z)) * np.sqrt(sigmas[i,:])
+    sims = comp.inverse_transform(sims)
+    sims = sims * stds + means
+    VaRs[i, :] = np.quantile(sims, q, axis=0) 
+    
+portVaRs = np.sum(VaRs * weights, axis=1)
+portRets = np.sum(X * weights, axis=1)
 
-# plot/corr
-PCs_Z = np.append(z, data_comp[:, :z.shape[1]], axis=1)
-sb.heatmap(np.corrcoef(PCs_Z, rowvar = False))
-X_Z = np.append(z, X, axis=1)
-sb.heatmap(np.corrcoef(X_Z, rowvar = False))
-
-plt.figure(figsize = (15,3))
-plt.plot(range(z.shape[0]), z[:,1], alpha=0.3)
-plt.plot(range(data_comp.shape[0]), data_comp[:,0], alpha=0.3)
-plt.legend(['z', 'pc'])
+plt.plot(portRets)
+plt.plot(portVaRs)
 plt.show()
 
+violations = (portVaRs > portRets).astype(int)
 
+
+print(f'ratio = {np.sum(violations) / len(violations)}')
 
 #%% 
 import os
@@ -136,3 +197,5 @@ print(info.style.format(precision=3, escape='latex').to_latex())
 
 plt.plot(data[data['atmVola'].isna()]['numOptions'])
 plt.plot(data[data['atmVola'].isna() == False]['numOptions'])
+
+

@@ -6,8 +6,6 @@ Main file that executes the code needed for the analysis of the thesis
 
 todo:
     - comment all code for clarity
-    - finalize all models - GMM is left
-    - implement different dists
     - code output and some performance analysis
 
 @author: MauritsOever
@@ -16,11 +14,9 @@ import os
 os.chdir(r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\GitHub\MASTERS_THESIS')
 # os.chdir(r'C:\Users\gebruiker\Documents\GitHub\MASTERS_THESIS')
 
-from models.Gauss_VAE import GaussVAE
-from models.GaussMix_VAE import GaussMixVAE
-from models.StudentT_VAE import StudentTVAE
-from models.MGARCH import DCC_garch, robust_garch_torch
+from models.VAE import VAE
 from data.datafuncs import GetData, GenerateAllDataSets
+from models.GARCH import univariate_garch
 import win32api
 import torch
 import numpy as np
@@ -29,201 +25,10 @@ import mpmath
 import matplotlib.pyplot as plt
 from scipy import stats
 from sklearn.decomposition import PCA
+import datetime
+import scipy
 
-def RE_analysis():
-    # begin_time = datetime.datetime.now()
-    
-    GenerateAllDataSets(delete_existing=False)
-    
-    epochs          = 2500
-    
-    simulated_dims = [1,2,3,4,6,12]
-    assumed_dims   = [1,2,3,4,6,12]
-
-    for data_type in ['returns']: #'normal', 't', 'mix', 'returns']:
-        print(f'data of type {data_type}')
-        
-        if data_type == 'returns':
-            assumed_dims = [1,2,3,4,6]
-            X = GetData(data_type)
-            REs = np.full((3, len(assumed_dims)), 'f'*40)
-            for ass_dim in range(len(assumed_dims)):
-                modelgauss = GaussVAE(X, assumed_dims[ass_dim])
-                modelt     = StudentTVAE(X, assumed_dims[ass_dim])
-                modelmix   = GaussMixVAE(X, assumed_dims[ass_dim])
-                
-                modelgauss.fit(epochs)
-                modelt.fit(epochs)
-                modelmix.fit(epochs)
-                
-                errgaus = np.round(modelgauss.REs.mean().detach().numpy(), 3)
-                errt = np.round(modelt.REs.mean().detach().numpy(), 3)
-                errmix = np.round(modelmix.REs.mean().detach().numpy(),3)
-                
-                REs[0, ass_dim] = '\\cellcolor{blue!' + str(errgaus*85) + '}' + str(errgaus)
-                REs[1, ass_dim] = '\\cellcolor{blue!' + str(errt*85) + '}' + str(errt)
-                REs[2, ass_dim] = '\\cellcolor{blue!' + str(errmix*85) + '}' + str(errmix)
-                
-            REdf = pd.DataFrame(REs)
-            REdf.index = ['Gaussian', 'Student t', 'Gaussian Mixture']
-            print(REdf.style.format().to_latex())
-        else:
-        
-            for modeltype in ['normal', 't', 'mix']:
-                counter = 0 # needs 36 times
-                
-                REs25 = np.full((len(simulated_dims),len(assumed_dims)), 'f'*40)
-                REs50 = np.full((len(simulated_dims),len(assumed_dims)), 'f'*40)
-                REs75 = np.full((len(simulated_dims),len(assumed_dims)), 'f'*40)
-                
-                # REs25[:,0] = np.array(simulated_dims)
-                # REs50[:,0] = np.array(simulated_dims)
-                # REs75[:,0] = np.array(simulated_dims)
-                
-                for simdim in range(len(simulated_dims)):
-                    data25 = GetData(data_type, simulated_dims[simdim], 0.25)
-                    data50 = GetData(data_type, simulated_dims[simdim], 0.50)
-                    data75 = GetData(data_type, simulated_dims[simdim], 0.75)
-                    
-                    for ass_dims in range(len(assumed_dims)):
-                        if modeltype == 'normal':
-                            model25 = GaussVAE(data25, assumed_dims[ass_dims], done=False)
-                            model50 = GaussVAE(data50, assumed_dims[ass_dims], done=False)
-                            model75 = GaussVAE(data75, assumed_dims[ass_dims], done=False)
-                        elif modeltype == 't':
-                            model25 = StudentTVAE(data25, assumed_dims[ass_dims], done=False)
-                            model50 = StudentTVAE(data50, assumed_dims[ass_dims], done=False)
-                            model75 = StudentTVAE(data75, assumed_dims[ass_dims], done=False)
-                        elif modeltype == 'mix':
-                            model25 = GaussMixVAE(data25, assumed_dims[ass_dims], done=False)
-                            model50 = GaussMixVAE(data50, assumed_dims[ass_dims], done=False)
-                            model75 = GaussMixVAE(data75, assumed_dims[ass_dims], done=False)
-                            
-                        
-                        model25.fit(epochs)
-                        model50.fit(epochs)
-                        model75.fit(epochs)
-                        
-                        err25 = np.round(model25.REs.mean().detach().numpy(), 3)
-                        err50 = np.round(model50.REs.mean().detach().numpy(), 3)
-                        err75 = np.round(model75.REs.mean().detach().numpy(), 3)
-                        
-                        REs25[simdim, ass_dims] = '\\cellcolor{blue!' + str(err25*85) + '}' + str(err25)
-                        REs50[simdim, ass_dims] = '\\cellcolor{blue!' + str(err50*85) + '}' + str(err50)
-                        REs75[simdim, ass_dims] = '\\cellcolor{blue!' + str(err75*85) + '}' + str(err75)
-                        counter += 1
-                        print(f'count is {counter}')
-                
-                # print below here
-                REs25 = pd.DataFrame(REs25)
-                REs50 = pd.DataFrame(REs50)
-                REs75 = pd.DataFrame(REs75)
-                
-                REs25.index = simulated_dims
-                REs50.index = simulated_dims
-                REs75.index = simulated_dims
-    
-                
-                print('')
-                print(f'model of type {modeltype}')
-                print('')
-    
-                print('corr = 0.25: ')
-                print(REs25.style.format().to_latex())
-                print('')
-                
-                print('corr = 0.50: ')
-                print(REs50.style.format().to_latex())
-                print('')
-                
-                print('corr = 0.75: ')
-                print(REs75.style.format().to_latex())
-                print('')
-            
-    # time = datetime.datetime.now() - begin_time
-    # print(f'time to run was {time}')
-    import win32api
-    win32api.MessageBox(0, 'RE analysis is done :)', 'Done!', 0x00001040)
-
-    return
-
-def GARCH_analysis(mode, dist):
-    # begin_time = datetime.datetime.now()
-    print('')
-    print('VAE-GARCH analysis running...')
-    
-    print(f'Mode = {mode}')
-    print(f'Dist = {dist}')
-    print('')
-    
-    dim_Z = 3
-    q = 0.05
-    
-    
-    if mode == 'VAE':       
-        print('load in return data: ')
-        X, weights = GetData('returns')
-        
-        # equally weighted:
-        weights = np.full((X.shape[0], X.shape[1]), 1.0/X.shape[1])
-        
-        print('for normal VAE: ')
-        
-        # if dist is normal --> gauss, if dist not normal --> t
-        model = GaussVAE(X, dim_Z, layers=3, batch_wise=True, done=False)
-        print('fitting VAE...')
-        model.fit(epochs=2500)
-        print('')
-        print('fitting GARCH...')
-        model.fit_garch_latent(epochs=50)
-        print('')
-        print('simming...')
-        VaRs = model.latent_GARCH_HS(data=None, q=q)
-        
-        del model
-        
-        portVaRs = np.sum(VaRs.detach().numpy() * weights, axis=1)
-        portRets = np.sum(X * weights, axis=1)
-        
-        del VaRs
-    
-    elif mode == 'PCA':
-
-        # data, PCA fit and compress, then store loadings
-        X, weights = GetData('returns')
-        decomp = PCA(n_components=dim_Z)
-        decomp.fit(X)
-        data_comp = decomp.transform(X)
-
-        # fit garch, and store its sigmas
-        garch = robust_garch_torch(torch.Tensor(data_comp), 'normal') # dist
-        garch.fit(50)
-        garch.store_sigmas()
-        sigmas = []
-        for sigma in garch.sigmas:
-            sigmas += [sigma.detach().numpy()] # 
-            # sigmas += [loading_matrix @ sigma.detach().numpy() @ loading_matrix.T] # project into original space
-        VaRs = np.zeros((len(sigmas), X.shape[1]))
-        for i in range(len(sigmas)):
-        # for i in range(1):
-            l = np.linalg.cholesky(sigmas[i])
-            sims = np.random.normal(loc=0, scale=1, size=(1000, 3)) @ l
-            sims = decomp.inverse_transform(sims)
-            
-            VaRs[i, :] = np.quantile(sims, 0.05, axis=0)
-            
-        portVaRs = np.sum(VaRs * weights, axis=1)
-        portRets = np.sum(X * weights, axis=1)
-        
-    # ESsNP = ESs.detach().numpy()
-    violations = np.array(torch.Tensor(portVaRs > portRets).long())
-    del portVaRs, portRets
-    # coverage
-    ratio = sum(violations)/len(violations)
-    pval_ratio = stats.binom_test(sum(violations), len(violations), p=q)
-    
-    print(f'ratio of violations = {ratio}')
-    print(f'p-value of binom test = {pval_ratio}')
+def christoffersens_independence_test(violations):
     a00s = 0
     a01s = 0
     a10s = 0
@@ -241,42 +46,214 @@ def GARCH_analysis(mode, dist):
                 else:
                     a11s += 1
                     
-    if a11s > 0:            
+    if a11s > 0 and a00s > 0:            
         qstar0 = a00s / (a00s + a01s)
         qstar1 = a10s / (a10s + a11s)
         qstar = (a00s + a10s) / (a00s+a01s+a10s+a11s)
         Lambda = (qstar/qstar0)**(a00s) * ((1-qstar)/(1-qstar0))**(a01s) * (qstar/qstar1)**(a10s) * ((1-qstar)/(1-qstar1))**(a11s)
-        
-        pval_chris = stats.chi2.ppf(-2*np.log(Lambda), df=1)
-        print(f'pvalue christoffersens test = {pval_chris}')
+                
+        pval_chris = stats.chi2.pdf(-2*np.log(Lambda), df=1)
+        #print(f'pvalue christoffersens test = {pval_chris}')
     else:
         pval_chris = 0
-        print('There are no consecutive exceedences, so we can accept independence')
+        #print('There are no consecutive exceedences, so we can accept independence')
     
-    del a00s, a01s, a10s, a11s, violations
-    
-    return [ratio, pval_ratio, pval_chris]
+    return pval_chris
 
-def GARCH_analysis_coldstart(mode, dist):
+
+
+def GARCH_analysis(mode, dist, dim_Z, q):
+    #print('')
+    #print('VAE-GARCH analysis running...')
+    
+    #print(f'Mode = {mode}')
+    #print(f'Dist = {dist}')
+    #print('')
+    
+    if mode == 'VAE':       
+        #print('load in return data: ')
+        X, weights = GetData('returns')
+        
+        # equally weighted:
+        weights = np.full((X.shape[0], X.shape[1]), 1.0/X.shape[1])
+        
+        #print('for normal VAE: ')
+        
+        # if dist is normal --> gauss, if dist not normal --> t
+        model = VAE(X, dim_Z, layers=1, plot=False, batch_wise=True, standardize=True, dist=dist)
+        #print('fitting VAE...')
+        model.fit(epochs=400)
+        #print('')
+        #print('fitting GARCH...')
+        model.fit_garch_latent()
+        #print('')
+        #print('simming...')
+        VaRs = model.latent_GARCH_HS(data=None, q=q)
+
+        RE = model.REs.detach().numpy().mean()
+        MM = model.MMs
+        del model
+        
+        portVaRs = np.sum(VaRs * weights, axis=1)
+        portRets = np.sum(X * weights, axis=1)
+        
+        del VaRs
+    
+    elif mode == 'PCA':
+
+        X, _ = GetData('returns')
+        means = X.mean(axis=0)
+        stds  = X.std(axis=0)
+        X_standard = (X - means)/stds
+        
+        weights = np.full((X.shape[0], X.shape[1]), 1.0/X.shape[1])
+        
+        comp = PCA(n_components = dim_Z)
+        comp = comp.fit(X_standard)
+        transform = comp.transform(X_standard)
+        sigmas = univariate_garch(transform, dist).calibrate()
+        
+        VaRs = np.zeros((len(sigmas), X.shape[1]))
+        
+        for i in range(len(sigmas)):
+            
+            if dist == 'normal':
+                sims = np.random.normal(loc=0, scale=1, size=(1000, X.shape[1])) # * sigmas[i,:]
+            else:
+                sims = np.random.standard_t(df=25., size=(1000, X.shape[1])) #* sigmas[i,:]
+            
+            l = scipy.linalg.cholesky(np.diag(sigmas[i,:]))
+            
+            covmat = comp.components_.T @ l @ comp.components_
+            sims = sims @ covmat
+            
+            # sims = comp.inverse_transform(sims)
+            sims = sims * stds + means # bring back to rets
+            VaRs[i, :] = np.quantile(sims, q, axis=0)
+                    
+        portVaRs = np.sum(VaRs * weights, axis=1)
+        portRets = np.sum(X * weights, axis=1)
+        
+        # path = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\THESIS\present\GARCH'
+        # filename = path + f'\mode={mode} dist={dist}, q={q}, dim_z={dim_Z}.png'
+        
+        # plt.plot(portRets)
+        # plt.plot(portVaRs)
+        # plt.savefig(filename)
+        # plt.show()
+    
+    else:
+        #print(f'mode {mode} is not a valid mode')
+        return [0,0,0]
+
+
+    
+    # ESsNP = ESs.detach().numpy()
+    violations = np.array(torch.Tensor(portVaRs > portRets).long())
+    # del portVaRs, portRets
+    # coverage
+    ratio = sum(violations)/len(violations)
+    pval_ratio = stats.binom_test(sum(violations), len(violations), p=q)
+    
+    #print(f'ratio of violations = {ratio}')
+    pval_chris = christoffersens_independence_test(violations)    
+    
+    if mode == 'VAE':
+        return [ratio, pval_ratio, pval_chris, portRets, portVaRs, RE, MM]
+    else:
+        return[ratio, pval_ratio, pval_chris, portRets, portVaRs]
+
+def GARCH_analysis_coldstart(mode, dist, amount_of_runs=5, dim_Z=5, q=0.05):
+    begin_time = datetime.datetime.now()
     old_result = [0,0,0]
-    for i in range(5):
-        result = GARCH_analysis(mode, dist)
-        if result[1] > old_result[1]:
+    
+    if mode == 'PCA':
+        amount_of_runs = 1
+    
+    for i in range(amount_of_runs):
+        #print(f'run number {i+1} out of {amount_of_runs}')
+        result = GARCH_analysis(mode, dist, dim_Z, q)
+        if amount_of_runs > 1:
+            if result[1] > old_result[1]:
+                old_result = result
+        else:
             old_result = result
-    win32api.MessageBox(0, 'GARCH analysis is done :)', 'Done!', 0x00001040)
-    print('')
-    print('best run:')
-    print(f'ratio      = {old_result[0]}')
-    print(f'pval       = {old_result[1]}')
-    print(f'pval chris = {old_result[2]}')
-    return 
+            
+    # win32api.MessageBox(0, 'GARCH analysis is done :)', 'Done!', 0x00001040)
 
+    #print('')
+    #print('best run:')
+    #print(f'ratio      = {old_result[0]}')
+    #print(f'pval       = {old_result[1]}')
+    #print(f'pval chris = {old_result[2]}')
+    
+    path = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\THESIS\present\GARCH'
+    filename = path + f'\mode={mode} dist={dist}, q={q}, dim_z={dim_Z}.png'
+    
+    plt.plot(old_result[3])
+    plt.plot(old_result[4])
+    plt.title('q = '+str(q))
+    plt.legend(['Returns', 'VaR'])
+    plt.savefig(filename)
+    plt.show()
+    
+    time = datetime.datetime.now() - begin_time
+    #print('')
+    #print(f'time to run was {time}')
+    
+    return old_result
+
+def run_all_coldstarts():
+    
+    amount_of_runs = 20
+    
+    dictionary = {}
+    
+    modes  = ['VAE']
+    dists  = ['normal']
+    qs     = [0.1, 0.05, 0.01]
+    dim_Zs = [3]
+    
+    total_runs = len(modes)*len(dists)*len(qs)*len(dim_Zs)*amount_of_runs
+    print(f'doing {total_runs} runs')
+    count = 0
+    for mode in modes:
+        for dist in dists:
+            for q in qs:
+                for dim_Z in dim_Zs:
+                    dictionary[f'mode={mode}, dist={dist}, q={q}, dim_Z={dim_Z}'] = GARCH_analysis_coldstart(mode, dist, amount_of_runs, dim_Z, q)
+                    count += amount_of_runs
+                    print(f'runs {count} done out of {total_runs}')
+
+                    # #print(f'ratio      = {result[0]}')
+                    # #print(f'pval       = {result[1]}')
+                    # #print(f'pval chris = {result[2]}')
+                    
+    path = r'C:\Users\MauritsvandenOeverPr\OneDrive - Probability\Documenten\THESIS\present\GARCH'
+    filename = path+'\output.txt'
+    
+    with open(filename, 'w') as f:
+        for i in list(dictionary.keys()):
+            print(i, file=f)
+            print(f'ratio  = {dictionary[i][0]}', file=f)     
+            print(f'pval   = {dictionary[i][1]}', file=f)
+            print(f'pcrhis = {dictionary[i][2]}', file=f)
+            print('', file=f)
+            print('', file=f)
+            
+    win32api.MessageBox(0, 'GARCH analysis is done :)', 'Done!', 0x00001040)
+
+    return dictionary
+
+
+# dictionary = run_all_coldstarts()
 #%% 
 def main():
     import warnings
     warnings.filterwarnings("ignore") 
-    # test = RE_analysis()
-    GARCH_analysis_coldstart('VAE', 'normal')
-
+    
+    run_all_coldstarts()
+    
+    
 if __name__=='__main__':
-    main()
+     main()
